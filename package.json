@@ -1,0 +1,34 @@
+{
+  "name": "stillplay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Classic games, playable and inspectable in your browser.",
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "bin": {
+    "xpc": "scripts/xpc.mjs"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "preview": "node scripts/dev.mjs --dist",
+    "build": "scripts/heavy.sh node scripts/build.mjs",
+    "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "test:browser": "scripts/heavy.sh node scripts/test-browser.mjs",
+    "lighthouse": "scripts/heavy.sh node scripts/lighthouse.mjs",
+    "verify:scoreboard": "node scripts/verify-scoreboard.mjs",
+    "inspect:originals": "node scripts/inspect-originals.mjs",
+    "xpc": "node scripts/xpc.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/dm-serif-display": "5.3.0",
+    "@fontsource/space-grotesk": "5.3.0",
+    "@playwright/test": "1.64.1",
+    "chrome-launcher": "1.2.2",
+    "lighthouse": "13.5.0"
+  }
+}

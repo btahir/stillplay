@@ -1,0 +1,84 @@
+# Replay format, version 1
+
+Stillplay runs the same original-authored C WebAssembly modules in the browser and in Node. A replay records the initial game configuration and input actions. It contains no program code, original executable, or Microsoft assets. This format proves reproducibility in this implementation; it does not establish equivalence with an original Windows game.
+
+Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"` or `"freecell"`. The shared `src/shared.js` loader accepts a JSON string or object, enforces a 1 MiB envelope and at most 100,000 actions, then validates and plays every action through the corresponding WASM core. Unknown versions and malformed actions fail with an error. JSON fields such as a claimed score or winner are never trusted as a result: derive results by replaying.
+
+## Minesweeper
+
+```json
+{
+  "version": 1,
+  "game": "minesweeper",
+  "level": "beginner",
+  "seed": 123,
+  "actions": [
+    { "type": "reveal", "x": 0, "y": 0, "t": 0 },
+    { "type": "flag", "x": 3, "y": 4, "t": 1200 },
+    { "type": "chord", "x": 1, "y": 1, "t": 2200 }
+  ]
+}
+```
+
+`level` is `beginner` (9 × 9, 10 mines), `intermediate` (16 × 16, 40 mines), or `expert` (30 × 16, 99 mines). `seed` is an unsigned 32-bit integer, including zero. `x` and `y` are zero-based board coordinates. `t` is a nonnegative safe integer representing elapsed milliseconds; timestamps must be nondecreasing. Times are informational and do not change board logic. They are client-provided values and cannot authenticate a speed record.
+
+Actions record valid input attempts, including inputs with no resulting board change. First-click relocation and flood reveal are deterministic for a given seed and action sequence. The generator uses a CRT-style RNG, but its boards have not been compared with owner-supplied original binaries. No claim of original seed equivalence is made.
+
+## FreeCell
+
+```json
+{
+  "version": 1,
+  "game": "freecell",
+  "deal": 11982,
+  "actions": [
+    {
+      "type": "move",
+      "from": { "type": "column", "index": 0 },
+      "to": { "type": "freecell", "index": 0 },
+      "count": 1
+    },
+    { "type": "undo" },
+    { "type": "autoMove" }
+  ]
+}
+```
+
+`deal` is an integer from 1 through 2,147,483,647. The familiar original range is 1–32,000. Locations use zero-based indices: `column` 0–7, `freecell` 0–3, or `foundation` 0–3. The CLI also accepts `c0`–`c7`, `f0`–`f3`, and `h0`–`h3`. Foundation indices follow clubs, diamonds, hearts, spades. `count` is the number of cards moved; omitting it means one. Multi-card moves must be descending and alternate color, and must fit the available temporary spaces.
+
+Only successful moves, undos, and automatic foundation actions are logged. A replay with an illegal action is rejected, including an undo with no history. Hints do not modify the state and are not logged. Cards in state JSON are suit-major integers: clubs 0–12, diamonds 13–25, hearts 26–38, and spades 39–51, with ace through king in each suit. Foundation state values are top ranks/counts 0–13, not card IDs. The deal algorithm is independently implemented; verification against owner-supplied originals remains pending.
+
+## CLI
+
+Run from the project root after building the WASM modules:
+
+```sh
+pnpm xpc minesweeper new --level expert --seed 42 --json
+pnpm xpc minesweeper click 3 4 --json
+pnpm xpc minesweeper flag 5 6
+pnpm xpc minesweeper chord 3 4
+pnpm xpc replay export game.replay.json
+pnpm xpc replay load game.replay.json --state another-game.json --json
+
+pnpm xpc freecell deal 11982 --state cards.json --json
+pnpm xpc freecell move c0 f0 --state cards.json --json
+pnpm xpc freecell hint --state cards.json --json
+pnpm xpc freecell undo --state cards.json
+pnpm xpc freecell auto --state cards.json
+```
+
+Every command accepts `--state FILE`. The default is `.stillplay-state.json` in the current directory, or the `XPC_STATE` environment variable when set. State is saved as replay JSON, through an atomic file replacement, after each input. This is one active game per state file. `minesweeper state` and `freecell state` report it. Commands with `--json` emit one JSON value. Errors go to stderr and return exit code 1. `replay export` without a filename emits replay JSON; `replay load -` reads a replay from stdin. Nothing is uploaded.
+
+State JSON exposes the complete Minesweeper board, including unrevealed mines, for debugging and agent development. This CLI is not a hidden-information tournament interface. Public agent submission and anti-cheat policy are future work.
+
+## Daily challenge
+
+`dailySeed(YYYY-MM-DD)` hashes `stillplay:YYYY-MM-DD` using unsigned FNV-1a. Dates are UTC and the shared challenge changes at midnight UTC. The FreeCell daily deal is `dailySeed(date) % 32000 + 1`. All clients running this version derive the same seed/deal without a server. This mapping is not an original-game feature.
+
+## Local executable inspection
+
+`inspectExecutable(arrayBuffer)` from `src/pe-resources.js` reads PE headers and resource directories, computes SHA-256 with browser Web Crypto, and wraps supported `RT_BITMAP` DIBs in BMP headers. It never executes the program and contains no network calls. Files and extracted art stay in browser memory; no original binaries or assets are saved in the repository. The caller should also avoid analytics or persistence of the supplied file.
+
+The return value contains `metadata`, `sha256`, `resources`, `bitmaps`, `warnings`, and candidate `minesweeper` strip mappings. Tiles are recognized as 16 × 16 strips, faces as 26 × 26, and digits as 13 × 23, in either orientation. Each candidate reports its `id`, `bmp`, `cellWidth`, `cellHeight`, `direction`, and `count`. Dimension matching does not establish frame ordering or resource identity. `minesweeper.verified` remains false; an imported-resource preview is not an authenticated original skin. The playable Original pixels mode must keep using our own art until a mapping is verified with the owner's binaries.
+
+The parser bounds-checks PE structures, resource subdirectories, and file-backed RVAs; it rejects cycles, excessive nesting, oversized resource trees, unsupported compression, and truncated bitmap palettes/pixels. Linker versions are metadata, not proof of a matching compiler. SHA-256 identifies a supplied file, not its provenance.
