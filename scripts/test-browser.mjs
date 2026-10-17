@@ -233,6 +233,8 @@ try {
     await page.setViewportSize({ width: 320, height: 740 });
     await page.goto(`${baseURL}/?seed=42`);
     await expect(page.locator('[data-cell]')).toHaveCount(81);
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: join(screenshots, 'phone-small.png'), fullPage: true, animations: 'disabled' });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Small 320px phones must also fit without horizontal overflow.');
   });
   assert.deepEqual(browserErrors, [], 'No uncaught browser exceptions.');

@@ -51,7 +51,7 @@ pnpm test:browser
 pnpm lighthouse
 ```
 
-Browser checks use Chromium with at most two workers. Builds, browser checks and Lighthouse use the shared two-job heavy-work wrapper. Performance and accessibility scores are measurements to obtain, not badges claimed in advance.
+Browser checks use Chromium with at most two workers. Builds, browser checks and Lighthouse use the shared two-job heavy-work wrapper. The measured results below describe this local build; they do not establish original-binary equivalence.
 
 ## Headless play
 
@@ -87,3 +87,19 @@ We have not established a clean-room reconstruction process. We do not claim acc
 | Later | Agent MCP server and replay leaderboard | Planned |
 
 No hosted site, public repository, posting schedule, or final domain has been approved. Stillplay is the working name.
+
+## Local measurements — 2026-10-17
+
+Production static build, Chromium 154.0.8037.57, Lighthouse 13.5.0. Reproduce with `pnpm build`, `pnpm test:browser` and `pnpm lighthouse`. Reports are generated under ignored `notes/`.
+
+| Check | Observed result |
+| --- | --- |
+| Core, CLI, PE and matching-tool tests | 27 passed, including 3,000 Minesweeper seeds and 3,000 FreeCell deals |
+| Browser scenarios | 10 passed, including touch, daily seeds, replays, exact approved PNG comparisons, and 320px phone fit |
+| Home Lighthouse | Performance 100 · Accessibility 100 · Best practices 100 · SEO 100 |
+| FreeCell Lighthouse | Performance 100 · Accessibility 100 · Best practices 100 · SEO 100 |
+| Initial encoded response bodies, including HTML, WASM, fonts and scoreboard JSON | 60,570 bytes |
+| Total initial HTTP transfer observed by the browser | 65,070 bytes |
+| Playable grid observed on an unthrottled local desktop | 139.1 ms |
+
+Payload was collected through network idle on the production server with Brotli support; FreeCell WASM is lazy-loaded. The board-ready observation is the time of the first playable-grid assertion, not a physical-phone result. Lighthouse used simulated mobile throttling: first contentful paint was 1,204 ms on home and 1,354 ms on FreeCell. The under-one-second playable target on a real mid-range phone remains unmeasured.
