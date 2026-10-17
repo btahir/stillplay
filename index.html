@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5ef">
+  <meta name="description" content="A little time, well wasted. Play Minesweeper and FreeCell in your browser. An open-source collection, with honest progress toward the original games.">
+  <meta property="og:title" content="Stillplay — Good games never get old."><meta property="og:description" content="Minesweeper and FreeCell, right here in your browser. A small collection with a long memory."><meta property="og:type" content="website"><meta property="og:image" content="/og.svg">
+  <title>Stillplay — Good games never get old.</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-latin-400-normal.woff2" crossorigin><link rel="stylesheet" href="/src/styles.css"><link rel="stylesheet" href="/src/freecell.css">
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('stillplay-theme')||'light'}catch{}</script>
+  <script type="module" src="/src/app.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the games</a>
+<header class="site-header wrap">
+  <a class="brand" href="/" aria-label="Stillplay home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 2h12v12H2zM18 2h12v12H18zM2 18h12v12H2z" fill="currentColor"/><path d="M18 18h12v12H18z" fill="none" stroke="currentColor" stroke-width="2"/></svg>stillplay<span>.</span></a>
+  <nav aria-label="Main navigation"><a href="/#collection">The games</a><a href="/secrets">Secrets</a><a href="/scoreboard">The reconstruction <span class="nav-arrow"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" width="12" height="12" aria-hidden="true"><path d="M3 13 13 3M4 3h9v9"/></svg></span></a></nav>
+  <button class="theme-button" id="theme-toggle" aria-label="Switch to dark theme"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M20.5 13.7A8.5 8.5 0 0 1 10.3 3.5a8.5 8.5 0 1 0 10.2 10.2Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+</header>
+<main id="main"></main>
+<footer class="site-footer wrap"><a class="brand footer-brand" href="/">stillplay.</a><p>Good games. No installs. Just one more round.</p><div><a href="/about">About the project</a><a href="/scoreboard">Progress & proof</a><span>Made with a long memory.</span></div><p class="legal">An independent project. Not affiliated with or endorsed by Microsoft.</p></footer>
+<dialog id="dialog"><div class="dialog-head"><span id="dialog-title"></span><button id="dialog-close" aria-label="Close dialog">×</button></div><div id="dialog-body"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

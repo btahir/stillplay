@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="271" height="24" viewBox="0 0 271 24" role="img" aria-label="FreeCell: awaiting original verification">
+  <rect width="271" height="24" fill="#233e32"/>
+  <rect x="80" width="191" height="24" fill="#e9e4d9"/>
+  <g font-family="Arial,sans-serif" font-size="11" text-anchor="middle">
+    <text x="40" y="16" fill="#fffdf7">FreeCell</text>
+    <text x="175" y="16" fill="#233e32">awaiting original verification</text>
+  </g>
+</svg>

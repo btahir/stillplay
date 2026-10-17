@@ -1,0 +1,89 @@
+[Open the local build](http://localhost:4179) · No public deployment yet.
+
+# Stillplay
+
+**A little time. Well wasted.** Minesweeper and FreeCell, made for a browser and a quiet break.
+
+![Playing Minesweeper in the local Stillplay prototype](public/hero.gif)
+
+[![Minesweeper verification status](public/badges/minesweeper.svg)](scoreboard/minesweeper.json)
+[![FreeCell verification status](public/badges/freecell.svg)](scoreboard/freecell.json)
+
+Stillplay is a playable prototype of the games that came with Windows XP, using our own code and artwork. The long-term project is a function-by-function, byte-matched reconstruction with public evidence. **No original executables have been supplied, so no original function, byte, or deal layout is verified yet.** The current C/WebAssembly games are our own implementations.
+
+## Play locally
+
+Requires Node 24 and pnpm 11. Use the repository's pinned package-manager version.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev --port 4179
+```
+
+Open [localhost:4179](http://localhost:4179). The home page opens directly into Minesweeper. FreeCell, daily challenges, Secrets and the evidence scoreboard are available from the site navigation. Preferences and game records remain in your browser.
+
+To rebuild the C cores and serve the static output, also provide LLVM Clang with the `wasm32` target and `wasm-ld` on PATH (or select Clang with `CLANG=/path/to/clang`):
+
+```sh
+pnpm build
+pnpm preview --port 4179
+```
+
+Game logic lives in `cores/*.c`, is compiled to `cores/*.wasm`, and is loaded by the browser and the Node CLI. See `scripts/build.mjs` for compiler detection and exact flags. The included WASM lets the development server run without a system-wide compiler installation. This modern LLVM browser build does not reproduce an original Windows compiler toolchain.
+
+## What is verified
+
+| Game | Verified original functions | Original function total | Verified original bytes | Byte-match percentage |
+| --- | --- | --- | --- | --- |
+| Minesweeper | 0 | Unknown | 0 | Not measured |
+| FreeCell | 0 | Unknown | 0 | Not measured |
+
+The machine-readable source of truth is [`scoreboard/minesweeper.json`](scoreboard/minesweeper.json) and [`scoreboard/freecell.json`](scoreboard/freecell.json). Unknown denominators are `null`; the site must not turn them into a percentage. Original inputs remain outside this repository. No differential result is asserted before we can run the original and this build with the same inputs.
+
+Each file also indexes the actual functions in our own C prototype separately. That code index has no original addresses or sizes and contributes nothing to the original match totals.
+
+The current local tests exercise our implementation: deterministic seeds and replays, legal state transitions, first-click safety, and card/deal invariants. They do not establish equivalence to Microsoft's originals.
+
+```sh
+pnpm test
+pnpm verify:scoreboard
+pnpm test:browser
+pnpm lighthouse
+```
+
+Browser checks use Chromium with at most two workers. Builds, browser checks and Lighthouse use the shared two-job heavy-work wrapper. Performance and accessibility scores are measurements to obtain, not badges claimed in advance.
+
+## Headless play
+
+The `xpc` CLI runs the same WASM cores in Node. Commands are deterministic and emit JSON suitable for agents.
+
+```sh
+pnpm xpc minesweeper new --level expert --seed 42 --json
+pnpm xpc minesweeper click 3 4 --json
+pnpm xpc freecell deal 11982 --json
+pnpm xpc freecell move c0 f0 --json
+pnpm xpc replay export game.json
+pnpm xpc replay load game.json --json
+```
+
+Commands save state in `.stillplay-state.json` by default; use `--state /path/to/state.json` to isolate sessions. Replays contain a schema version, game configuration and ordered inputs; see [`docs/replay-format.md`](docs/replay-format.md). This is the foundation for shareable games and a future replay-verified agent leaderboard. A public leaderboard and stdio MCP server are later work.
+
+## Original files and artwork
+
+The repository includes our original vector/code-drawn art and authored code. It includes no Microsoft game bitmap, icon, sound, theme resource, original executable or Pinball data. The local file tool inspects supplied PE resources in your browser, computes a SHA-256 and previews supported BMP resources without uploading or executing the file. It does not yet render those resources as an authentic playable game skin.
+
+We have not established a clean-room reconstruction process. We do not claim access to the original source. Future original-binary verification needs lawfully supplied files and a legitimate matching compiler toolchain; hashes and function comparisons will be recorded when those inputs exist.
+
+**Not affiliated with or endorsed by Microsoft.** “Windows XP” is used only to describe the historical games.
+
+## Roadmap
+
+| Wave | Games | Status |
+| --- | --- | --- |
+| 1 | Minesweeper + FreeCell | Playable local prototype; original matching and differential verification pending |
+| 2 | Solitaire + Spider Solitaire | Planned after wave-one evidence |
+| 3 | Hearts | Planned |
+| 4 | 3D Pinball | Evaluate the MIT-licensed [SpaceCadetPinball](https://github.com/k4zmu2a/SpaceCadetPinball) source with proper credit and no original data |
+| Later | Agent MCP server and replay leaderboard | Planned |
+
+No hosted site, public repository, posting schedule, or final domain has been approved. Stillplay is the working name.
