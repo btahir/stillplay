@@ -7,3 +7,5 @@
 
 #hero-game{height:481px;min-width:0}#hero-game>.loading-game{height:481px}.game-choice>span{min-width:0}.text-link>svg{margin-left:9px;width:11px;height:11px;vertical-align:-1px}.nav-arrow>svg{width:11px;height:11px}.game-toolbar{--muted:#60675c}
 [data-theme=dark] .game-toolbar{--muted:#b1bbaa}
+main{min-height:calc(100svh - 108px)}#hero-game{width:306px;max-width:100%}@media(max-width:760px){main{min-height:calc(100svh - 84px)}}
+#full-game{width:100%;display:flex;flex-direction:column;align-items:center;min-height:481px;justify-content:center}[data-game-stage="freecell"] #full-game{min-height:600px}@media(max-width:760px){[data-game-stage="freecell"] #full-game{min-height:540px}}

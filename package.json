@@ -22,6 +22,7 @@
     "lighthouse": "scripts/heavy.sh node scripts/lighthouse.mjs",
     "verify:scoreboard": "node scripts/verify-scoreboard.mjs",
     "inspect:originals": "node scripts/inspect-originals.mjs",
+    "match": "node scripts/match.mjs",
     "xpc": "node scripts/xpc.mjs"
   },
   "devDependencies": {

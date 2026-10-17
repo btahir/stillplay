@@ -17,7 +17,7 @@
 .fc-menu-trigger{background:transparent;border:1px solid transparent;color:#111;padding:3px 7px;line-height:16px}
 .fc-menu-trigger u{text-decoration-thickness:1px;text-underline-offset:2px}
 .fc-menu-trigger:hover,.fc-menu-active{border-color:#fff #777 #777 #fff}
-.fc-menu-deal{font-size:10px;color:#56594f;margin-left:auto;margin-right:6px}
+.fc-menu-deal{font-size:10px;color:#484c43;margin-left:auto;margin-right:6px}
 .fc-dropdown{position:absolute;left:0;top:24px;width:184px;background:#c0c0c0;border:2px solid;border-color:#fff #555 #555 #fff;box-shadow:2px 2px 0 #1115;padding:2px;z-index:120}
 .fc-dropdown button{background:transparent;color:#111;text-align:left;border:0;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;width:100%;font-size:12px}
 .fc-dropdown button:hover,.fc-dropdown button:focus{background:#163d80;color:#fff;outline:0}
@@ -25,7 +25,7 @@
 .fc-dropdown button span{font-size:10px;color:inherit;margin-left:12px}
 .fc-menu-separator{height:2px;border-top:1px solid #888;border-bottom:1px solid #eee;margin:3px 1px}
 .fc-felt{padding:17px 14px 23px;background:#17633e;border:2px solid;border-color:#727272 #f3f3f3 #f3f3f3 #727272;min-height:410px;position:relative;isolation:isolate;overflow:hidden}
-.fc-cell-labels{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:7px;font-family:Arial,sans-serif;font-size:8px;letter-spacing:1.8px;color:#cae1cd;opacity:.76;text-align:center}
+.fc-cell-labels{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:7px;font-family:Arial,sans-serif;font-size:8px;letter-spacing:1.8px;color:#c2dbc5;text-align:center}
 .fc-top-row{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:27px}
 .fc-freecells,.fc-foundations{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--fc-gap)}
 .fc-slot{aspect-ratio:5/7;position:relative;min-width:0}
@@ -69,6 +69,7 @@
 .fc-dialog .fc-dialog-error{font-size:11px;color:#8b1420;margin:6px 0;min-height:18px}
 .fc-dialog-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:18px}
 .freecell-root[data-fidelity="pixels"] .fc-felt{background:#008000}
+.freecell-root[data-fidelity="pixels"] .fc-cell-labels{color:#edf4ed}
 .freecell-root[data-fidelity="pixels"] .fc-titlebar{background:#000080}
 .freecell-root[data-fidelity="pixels"] .fc-card,.freecell-root[data-fidelity="pixels"] .fc-card svg,.freecell-root[data-fidelity="pixels"] .fc-empty-slot,.freecell-root[data-fidelity="pixels"] .fc-foundation{border-radius:0}
 .freecell-root[data-fidelity="pixels"] .fc-card{box-shadow:1px 1px 0 #003a00}
