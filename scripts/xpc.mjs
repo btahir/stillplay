@@ -12,11 +12,17 @@ const HELP = `Stillplay headless CLI — the browser's WebAssembly cores, in Nod
   xpc freecell deal N [--json]
   xpc freecell move FROM TO [COUNT] [--json]
   xpc freecell undo|hint|auto|state [--json]
+  xpc solitaire new [--seed N] [--draw 1|3] [--scoring standard|vegas|none] [--manual-flip] [--json]
+  xpc solitaire move FROM TO [COUNT] [--json]
+  xpc solitaire draw|undo|hint|auto|finish|state [--json]
+  xpc solitaire flip COLUMN [--json]
   xpc replay export [FILE]
   xpc replay load FILE|- [--json]
 
 Coordinates and card locations are zero-based. FreeCell locations: c0..c7
-(columns), f0..f3 (free cells), h0..h3 (foundations). Use --state FILE on any
+(columns), f0..f3 (free cells), h0..h3 (foundations). Solitaire locations: t0..t6
+(tableau), w (waste), h0..h3 (foundations); draw turns the stock, or turns the
+waste back over when the stock is empty. Use --state FILE on any
 command; the default is .stillplay-state.json in the current directory.
 A replay contains seeds and actions, not executable code. Nothing is uploaded.
 `;
@@ -25,8 +31,8 @@ function parseArgs(args) {
   const positional = [], options = {};
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
-    if (arg === '--json' || arg === '--help' || arg === '-h') options[arg === '-h' ? 'help' : arg.slice(2)] = true;
-    else if (['--level', '--seed', '--state', '--count'].includes(arg)) {
+    if (arg === '--json' || arg === '--help' || arg === '-h' || arg === '--manual-flip') options[arg === '-h' ? 'help' : arg.slice(2)] = true;
+    else if (['--level', '--seed', '--state', '--count', '--draw', '--scoring'].includes(arg)) {
       if (args[index + 1] === undefined || args[index + 1].startsWith('--')) throw new Error(`${arg} requires a value.`);
       options[arg.slice(2)] = args[++index];
     } else if (arg.startsWith('--')) throw new Error(`Unknown option: ${arg}`);
@@ -59,8 +65,18 @@ function formatState(state, kind) {
     for (let y = 0; y < state.height; y++) rows.push(state.cells.slice(y * state.width, (y + 1) * state.width).map((cell) => cell.flagged ? 'F' : !cell.revealed ? '#' : cell.mine ? '*' : cell.adjacent || '.').join(' '));
     return `Minesweeper ${state.level} · seed ${state.seed} · ${state.status}\n${rows.join('\n')}\n${state.flags} flags · ${state.revealed} revealed`;
   }
+  if (kind === 'solitaire') return formatSolitaire(state);
   const card = (id) => id == null ? '--' : `${['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][id % 13]}${['C', 'D', 'H', 'S'][Math.floor(id / 13)]}`;
   return `FreeCell deal ${state.deal} · ${state.status}\nFree cells: ${state.freecells.map(card).join(' ')}\nFoundation ranks: ${state.foundations.join(' ')}\n${state.columns.map((column, index) => `c${index}: ${column.map(card).join(' ')}`).join('\n')}\n${state.moves} moves`;
+}
+function formatSolitaire(state) {
+  const card = (id) => `${['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][id % 13]}${['C', 'D', 'H', 'S'][Math.floor(id / 13)]}`;
+  const score = state.scoring === 'vegas' ? `$${state.score}` : state.scoring === 'none' ? 'not scored' : `${state.score} points`;
+  const foundations = state.foundations.map((slot) => slot.rank ? card(slot.suit * 13 + slot.rank - 1) : '--').join(' ');
+  const waste = state.waste.slice(-Math.max(1, state.wasteFan)).map(card).join(' ') || '--';
+  const passes = state.maxPasses ? `pass ${state.pass} of ${state.maxPasses}` : `pass ${state.pass}`;
+  const columns = state.tableau.map((column, index) => `t${index}: ${column.map((id, row) => row < state.hidden[index] ? '##' : card(id)).join(' ')}`);
+  return `Solitaire deal ${state.seed} · draw ${state.draw} · ${state.status}\nStock: ${state.stock.length} cards · ${passes} · Waste: ${waste}\nFoundations: ${foundations}\n${columns.join('\n')}\n${state.moves} moves · ${score}${state.canAutoFinish ? ' · ready to finish' : ''}`;
 }
 
 export async function runCLI(argv = process.argv.slice(2), context = {}) {
@@ -113,6 +129,37 @@ export async function runCLI(argv = process.argv.slice(2), context = {}) {
         if (params.length) throw new Error('freecell hint accepts no positional arguments.');
         result = game.hint();
       } else if (command !== 'state' || params.length) throw new Error('Unknown FreeCell command. Use --help for commands.');
+    }
+  } else if (kind === 'solitaire') {
+    if (command === 'new') {
+      if (params.length) throw new Error('solitaire new takes options only, for example --seed 7 --draw 3.');
+      const { createSolitaire } = await import('../src/solitaire-core.js');
+      const draw = integer(options.draw ?? '1', 'Draw', 1, 3);
+      if (draw === 2) throw new Error('Draw must be 1 or 3.');
+      const scoring = options.scoring || 'standard';
+      if (!['standard', 'vegas', 'none'].includes(scoring)) throw new Error('Scoring must be standard, vegas or none.');
+      game = await createSolitaire({ seed: integer(options.seed ?? '1', 'Seed', 1, 2147483647), draw, scoring, autoFlip: !options['manual-flip'] });
+      mutated = true;
+    } else {
+      game = await restore(stateFile, kind);
+      if (command === 'move') {
+        if (params.length < 2 || params.length > 3) throw new Error('solitaire move requires FROM TO and optional COUNT.');
+        const count = integer(options.count ?? params[2] ?? '1', 'Card count', 1, 52);
+        if (!game.move(params[0], params[1], count)) throw new Error('That move is not legal.');
+        mutated = true;
+      } else if (command === 'flip') {
+        if (params.length !== 1) throw new Error('solitaire flip requires one column number.');
+        if (!game.flip(integer(params[0], 'Column', 0, 6))) throw new Error('That column has no face-down card to turn over.');
+        mutated = true;
+      } else if (['draw', 'undo', 'auto', 'finish'].includes(command)) {
+        if (params.length) throw new Error(`solitaire ${command} accepts no positional arguments.`);
+        const ok = command === 'draw' ? game.stock() : command === 'undo' ? game.undo() : command === 'auto' ? game.autoMove() : game.finishStep();
+        if (!ok) throw new Error({ draw: 'The stock and waste are both finished for this game.', undo: 'There is no move to undo.', auto: 'No safe foundation move is available.', finish: 'The game cannot finish itself yet.' }[command]);
+        mutated = true;
+      } else if (command === 'hint') {
+        if (params.length) throw new Error('solitaire hint accepts no positional arguments.');
+        result = game.hint();
+      } else if (command !== 'state' || params.length) throw new Error('Unknown Solitaire command. Use --help for commands.');
     }
   } else if (kind === 'replay') {
     if (command === 'export') {

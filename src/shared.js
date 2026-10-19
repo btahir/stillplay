@@ -9,7 +9,7 @@ export function parseReplay(input) {
     try { replay = JSON.parse(input); } catch { throw new Error('Replay must be valid JSON.'); }
   }
   if (!replay || typeof replay !== 'object' || Array.isArray(replay) || replay.version !== REPLAY_VERSION) throw new Error('Unsupported replay version; expected version 1.');
-  if (!['minesweeper', 'freecell'].includes(replay.game)) throw new Error('Unsupported replay game.');
+  if (!['minesweeper', 'freecell', 'solitaire'].includes(replay.game)) throw new Error('Unsupported replay game.');
   if (!Array.isArray(replay.actions) || replay.actions.length > 100000) throw new Error('Replay must contain at most 100,000 actions.');
   if (new TextEncoder().encode(JSON.stringify(replay)).byteLength > MAX_REPLAY_BYTES) throw new Error('Replay exceeds the 1 MiB limit.');
   return replay;
@@ -21,6 +21,10 @@ export async function loadReplay(input) {
   if (replay.game === 'minesweeper') {
     const { loadReplay: loadMinesweeperReplay } = await import('./minesweeper-core.js');
     return loadMinesweeperReplay(replay);
+  }
+  if (replay.game === 'solitaire') {
+    const { loadSolitaireReplay } = await import('./solitaire-core.js');
+    return loadSolitaireReplay(replay);
   }
   const { loadFreecellReplay } = await import('./freecell-core.js');
   return loadFreecellReplay(replay);
