@@ -99,3 +99,15 @@ export function recordWin(id, summary = {}, { countedStart = true, date = todayU
 export function dailyResult(id, date = todayUTC()) {
   return getStats(id).daily.results[date];
 }
+
+/** The last `days` daily results, oldest first: [{ date, solved, today }]. */
+export function recentDailies(id, days = 7, today = todayUTC()) {
+  const results = getStats(id).daily.results;
+  const list = [];
+  let date = today;
+  for (let index = 0; index < days; index += 1) {
+    list.unshift({ date, solved: results[date] !== undefined, today: date === today });
+    date = previousDay(date);
+  }
+  return list;
+}

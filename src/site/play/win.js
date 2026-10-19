@@ -5,7 +5,7 @@ import { escape, download, formatTime, formatDate, todayUTC } from '../ui/dom.js
 import { icon } from '../ui/icons.js';
 import { openDialog } from '../ui/dialog.js';
 import { showToast } from '../ui/toast.js';
-import { getStats } from './stats.js';
+import { getStats, recentDailies } from './stats.js';
 
 const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -53,6 +53,13 @@ async function copy(text, done, failed) {
     showToast(failed);
     return false;
   }
+}
+
+/** Seven small squares: which of the last seven dailies were solved. */
+function week(game) {
+  const days = recentDailies(game.id);
+  const label = `Daily ${game.title}, last seven days: ${days.filter((day) => day.solved).length} solved`;
+  return `<ol class="week" aria-label="${escape(label)}">${days.map((day) => `<li class="${day.solved ? 'is-solved' : ''}${day.today ? ' is-today' : ''}"><i>${day.solved ? icon('check', { size: 14 }) : ''}</i><span>${escape(formatDate(day.date, { weekday: 'narrow' }))}</span></li>`).join('')}</ol>`;
 }
 
 function statCells(stats, { daily }) {
@@ -107,6 +114,7 @@ export function showWin({ game, summary, stats, handle }) {
         ${streak}
       </div>
       ${statCells(stats, { daily: summary.daily })}
+      ${summary.daily ? week(game) : ''}
       <div class="share-preview" aria-label="Share text">${escape(text)}<br><span>${escape(link)}</span></div>
       <div class="dialog-actions">
         <button type="button" class="button button-primary" data-share autofocus>${icon('share', { size: 16 })}Share result</button>
@@ -144,6 +152,7 @@ export function showStats(game) {
         <div>${icon('streak', { size: 18 })}<strong>${stats.currentStreak}</strong><span>Current daily streak</span></div>
         <div>${icon('daily', { size: 18 })}<strong>${stats.bestStreak}</strong><span>Best daily streak</span></div>
       </div>
+      ${week(game)}
       <p class="stat-today">${today === undefined ? `Today’s daily ${escape(game.dailyNoun)} is waiting.` : `Today’s daily: solved${today === null ? '' : ` in ${escape(formatTime(today))}`}.`}${game.dailyPath ? ` <a class="text-link" href="${game.dailyPath}">${today === undefined ? 'Play it' : 'Play it again'} ${icon('arrow', { size: 12 })}</a>` : ''}</p>
       ${variants.length > 1 ? `<table class="stat-table"><caption>Best times</caption><tbody>${variants.map(([variant, time]) => `<tr><th scope="row">${escape(variant === 'default' ? 'Any' : capitalise(variant))}</th><td>${escape(formatTime(time))}</td></tr>`).join('')}</tbody></table>` : ''}
       <p class="dialog-note">${icon('lock', { size: 14 })}Kept on this device only. No account, nothing sent anywhere.</p>`,

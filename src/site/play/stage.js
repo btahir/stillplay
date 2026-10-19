@@ -24,7 +24,7 @@ function button(command, iconName, label, { tip = label, pressed, hidden = false
 function chromeHTML(game, { daily, variant }) {
   const sound = audio.soundEnabled();
   const left = [
-    button('new', 'new', game.id === 'minesweeper' ? 'New game' : 'New game', { tip: 'New game · F2' }),
+    button('new', 'new', 'New game', { tip: 'New game · F2' }),
     button('undo', 'undo', 'Undo', { tip: 'Undo · Ctrl Z', hidden: true }),
     button('hint', 'hint', 'Hint', { tip: 'Hint · H', hidden: true }),
   ];

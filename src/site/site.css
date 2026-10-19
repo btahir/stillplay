@@ -78,6 +78,7 @@ main { display: block; min-height: calc(100svh - 72px); }
 main:focus { outline: none; }
 
 .skip-link { position: fixed; top: 12px; left: 16px; z-index: 300; background: var(--ink); color: var(--paper); padding: 10px 14px; border-radius: var(--radius); transform: translateY(-200%); transition: transform .15s; }
+.skip-link:not(:focus) { clip-path: inset(50%); }
 .skip-link:focus { transform: none; }
 
 .eyebrow { display: flex; align-items: center; gap: 10px; margin: 0 0 22px; font-size: 12px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--green); }
@@ -295,7 +296,7 @@ main:focus { outline: none; }
 
 .page-intro { padding-top: 40px; padding-bottom: 36px; }
 .page-intro h1 { max-width: 820px; }
-.page-intro > p { max-width: 560px; font-size: 16px; line-height: 1.75; color: var(--muted); }
+.page-intro > p:not(.eyebrow) { max-width: 560px; font-size: 16px; line-height: 1.75; color: var(--muted); }
 .page-intro .notice { max-width: 720px; }
 
 .daily-rows { list-style: none; margin: 0 0 24px; padding: 0; border-top: 1px solid var(--line); }
@@ -311,7 +312,7 @@ main:focus { outline: none; }
 .daily-row-stats dd { margin: 0; font-family: var(--serif); font-size: 26px; }
 
 .soon { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; padding-top: 40px; padding-bottom: 72px; }
-.soon-copy p { color: var(--muted); max-width: 460px; }
+.soon-copy p:not(.eyebrow) { color: var(--muted); max-width: 460px; }
 .soon-art { aspect-ratio: 16 / 10; background: var(--card); }
 .soon-art .mini { width: 100%; height: 100%; display: block; }
 .soon-meanwhile { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
@@ -319,7 +320,7 @@ main:focus { outline: none; }
 .article { max-width: 760px; margin: 0 auto; padding: 48px var(--gutter) 64px; }
 .article h1 { font-size: clamp(42px, 5.4vw, 64px); line-height: 1.06; }
 .article .lede { margin-bottom: 32px; }
-.article p, .article li { font-size: 16px; line-height: 1.85; color: var(--ink-2); }
+.article p:not(.eyebrow, .lede, .source-note), .article li { font-size: 16px; line-height: 1.85; color: var(--ink-2); }
 .article h2 { font-size: 30px; margin: 44px 0 14px; }
 .article a:not(.text-link) { color: var(--green); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .article pre { padding: 22px; background: var(--pale); overflow: auto; font-size: 13px; line-height: 1.8; border-left: 2px solid var(--green); }
@@ -375,6 +376,9 @@ dialog::backdrop { background: #141c1599; animation: fade-in .2s ease-out; }
 /* Buttons that games put in plain dialogs */
 #dialog-body > button, #dialog-body p > button:not(.button) { min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--radius); background: var(--green); color: var(--paper); font-size: 14px; }
 .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.dialog-win .dialog-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dialog-win .dialog-actions .button-primary { grid-column: 1 / -1; min-height: 44px; }
+.dialog-win .dialog-actions .button { padding: 0 10px; }
 .dialog-note { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; font-size: 13px; color: var(--muted); }
 .dialog-note svg { color: var(--green); }
 .resource-preview { max-width: 100%; max-height: 220px; image-rendering: pixelated; }
@@ -399,6 +403,18 @@ dialog::backdrop { background: #141c1599; animation: fade-in .2s ease-out; }
 .stat-streaks strong { font-family: var(--serif); font-size: 26px; font-weight: 400; line-height: 1.1; }
 .stat-streaks span { font-size: 13px; color: var(--muted); }
 .stat-today { margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }
+.week li { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.week i { width: 100%; max-width: 40px; aspect-ratio: 1; border: 1px solid var(--line-strong); border-radius: 4px; display: grid; place-items: center; color: var(--paper); }
+.week .is-solved i { background: var(--green); border-color: var(--green); }
+.week .is-today span { color: var(--ink); font-weight: 500; }
+.week .is-today:not(.is-solved) i { border-style: dashed; border-color: var(--green); }
+@media (prefers-reduced-motion: no-preference) {
+  .dialog-win .week .is-today.is-solved i { animation: stamp .5s var(--ease) .25s both; }
+  .dialog-win .win-time { animation: rise .45s var(--ease) .05s both; }
+}
+@keyframes stamp { from { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); } }
+@keyframes rise { from { transform: translateY(8px); opacity: 0; } }
 .stat-today .text-link { margin-left: 6px; font-size: 14px; }
 .stat-table { width: 100%; margin-top: 18px; border-collapse: collapse; font-size: 14px; }
 .stat-table caption { text-align: left; font-size: 12px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; }
@@ -494,7 +510,6 @@ main { view-transition-name: page; }
   :root { --gutter: 32px; }
   .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .hero-copy { max-width: 640px; padding-top: 0; }
-  .hero-copy h1 br { display: none; }
   .hero-play { order: -1; }
   .hero-stage { min-height: 460px; }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -544,13 +559,14 @@ main { view-transition-name: page; }
   .score-card { padding: 22px; }
   .big-match { font-size: 64px; }
   .article { padding-top: 28px; }
-  .article p, .article li { font-size: 15px; }
+  .article p:not(.eyebrow, .lede, .source-note), .article li { font-size: 15px; }
   .daily-row { grid-template-columns: 36px minmax(0, 1fr); gap: 8px 16px; }
   .daily-row .daily-glyph { width: 32px; height: 32px; }
   .daily-row-stats { grid-column: 2; }
   .daily-row > .button { display: none; }
   .site-footer { grid-template-columns: minmax(0, 1fr); }
   .win-time { font-size: 60px; }
+  .dialog-win .dialog-actions { grid-template-columns: minmax(0, 1fr); }
   .stat-row dd { font-size: 22px; }
   .stat-streaks div { grid-template-columns: minmax(0, 1fr); padding: 12px; }
   .stat-streaks svg { display: none; }
