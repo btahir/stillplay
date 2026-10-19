@@ -19,9 +19,9 @@ export const games = [
     mount: () => import('./freecell-ui.js').then((m) => m.mountFreecell),
   },
   {
-    id: 'solitaire', title: 'Solitaire', path: '/solitaire', icon: 'solitaire', status: 'planned',
+    id: 'solitaire', title: 'Solitaire', path: '/solitaire', icon: 'solitaire', status: 'playable',
     tagline: 'Draw one or draw three. Then the cascade.',
-    mount: null,
+    mount: () => import('./solitaire-ui.js').then((m) => m.mountSolitaire),
   },
   {
     id: 'spider', title: 'Spider Solitaire', path: '/spider', icon: 'spider', status: 'planned',
