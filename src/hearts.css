@@ -89,6 +89,9 @@
 }
 /* Doubled class: card-table.css makes every pile position: relative. */
 .hz-pile.hz-pile { position: absolute; left: 0; top: 0; width: var(--hz-w); aspect-ratio: 5 / 7; }
+/* Piles are only anchors; an empty pile must never swallow a tap meant for the cards around it. */
+.hz-felt .hz-pile { pointer-events: none; }
+.hz-felt .hz-pile > .ct-card { pointer-events: auto; }
 .hz-seat { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .hz-fan { position: relative; width: var(--hz-w); height: var(--hz-h); }
 .hz-seat-north { grid-area: north; justify-self: center; }
@@ -189,6 +192,7 @@
 .hz-mini th[scope="row"] { text-align: left; font-weight: normal; }
 .hz-mini thead th { padding-top: 0; font-size: 9px; font-weight: normal; letter-spacing: 1px; text-transform: uppercase; color: #8a9083; }
 .hz-mini .hz-col-hand { color: #9a3a40; }
+.hz-mini .hz-col-hand.hz-zero { color: #8a9083; }
 .hz-row-you th, .hz-row-you td { font-weight: bold; color: #17301f; }
 .hz-panel-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .hz-text-button { border: 0; background: none; padding: 2px 0; color: #2c6249; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }

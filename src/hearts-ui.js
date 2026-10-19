@@ -131,7 +131,7 @@ function markup() {
         <button role="menuitem" type="button" data-action="deal">Choose a deal…</button>
         <div class="hz-menu-separator" role="separator"></div>
         <button role="menuitem" type="button" data-action="hint">Hint <span>H</span></button>
-        <button role="menuitem" type="button" data-action="scores">Score sheet <span>S</span></button>
+        <button role="menuitem" type="button" data-action="scores">Score sheet <span>T</span></button>
         <div class="hz-menu-separator" role="separator"></div>
         <button role="menuitem" type="button" data-action="options">Options…</button>
       </div></div>
@@ -192,6 +192,7 @@ function markup() {
 <dialog class="hz-dialog hz-scores-dialog" data-dialog="scores" aria-labelledby="hz-scores-title"><div class="hz-dialog-form">
   <h2 id="hz-scores-title">Score sheet</h2>
   <div class="hz-sheet"></div>
+  <p class="hz-dialog-note">Running totals, with each hand’s points beneath. The game ends when someone reaches 100; the lowest total wins.</p>
   <div class="hz-dialog-actions"><button type="button" class="hz-classic-button hz-default-button" data-action="cancel-dialog">OK</button></div>
 </div></dialog>
 <dialog class="hz-dialog" data-dialog="help" aria-labelledby="hz-help-title"><div class="hz-dialog-form">
@@ -199,7 +200,7 @@ function markup() {
   <p>Take as few points as you can. Every heart is worth one point and the queen of spades is worth thirteen. When someone reaches 100, the lowest score wins.</p>
   <p>Before each hand, pass three cards: left, then right, then across, then keep your cards. The two of clubs leads. Follow the suit that was led if you can; the highest card of that suit takes the trick. No points on the first trick, and hearts can’t be led until one has been played.</p>
   <p>Take every heart and the queen and you <strong>shoot the moon</strong>: you score nothing and everyone else takes 26.</p>
-  <p><strong>Playing:</strong> tap or click a raised card, or drag it up onto the table. <strong>Keyboard:</strong> ←/→ choose a card, Enter plays it or picks it to pass, <strong>P</strong> passes, <strong>H</strong> hints, <strong>S</strong> shows the score sheet, <strong>F2</strong> starts a new game. There is no undo, just as in the original.</p>
+  <p><strong>Playing:</strong> tap or click a raised card, or drag it up onto the table. <strong>Keyboard:</strong> ←/→ choose a card, Enter plays it or picks it to pass; after the third card, focus moves to the Pass button. <strong>H</strong> hints, <strong>T</strong> shows the score sheet, <strong>F2</strong> starts a new game. There is no undo, just as in the original.</p>
   <div class="hz-dialog-actions"><button type="button" class="hz-classic-button hz-default-button" data-action="cancel-dialog">Got it</button></div>
 </div></dialog>
 <dialog class="hz-dialog" data-dialog="about" aria-labelledby="hz-about-title"><div class="hz-dialog-form">
@@ -210,7 +211,7 @@ function markup() {
 </div></dialog>`;
 }
 
-export async function mountHearts(container, { daily = false, onWin = () => {}, sound = () => {} } = {}) {
+export async function mountHearts(container, { daily = false, onWin = () => {}, onStart = () => {}, onLose = () => {}, sound = () => {}, chrome = false } = {}) {
   injectStyles();
   const params = new URLSearchParams(location.search);
   const settings = loadSettings();
@@ -243,6 +244,8 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
   host.className = 'hearts-root';
   host.dataset.fidelity = fidelity;
   host.innerHTML = markup();
+  // The site shell draws New game, Hint, Sound and Pixels around the window; only stand-alone pages need ours.
+  if (chrome) host.querySelector('.hz-quick-actions').remove();
   container.replaceChildren(host);
   const $ = (selector) => host.querySelector(selector);
   const felt = $('.hz-felt');
@@ -258,6 +261,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
   const isHandPile = (id) => id === 'h0' || id === 'h1';
 
   function playSound(name) { try { sound(name); } catch { /* Sound is optional. */ } }
+  function notify(callback, ...args) { try { callback?.(...args); } catch (error) { console.error(error); } }
   function announce(text) { messageEl.textContent = text; }
   function prompt(text) { promptEl.textContent = text; }
   const elapsed = () => finishedSeconds ?? (started ? Math.floor((Date.now() - started) / 1000) : 0);
@@ -442,7 +446,11 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     if (!Number.isInteger(card)) return;
     cursorCard = card;
     const state = engine.state();
-    if (state.phase === 'pass') toggleChosen(card);
+    if (state.phase === 'pass') {
+      const fromKeyboard = felt.contains(document.activeElement) && document.activeElement.classList.contains('ct-card') && document.activeElement.matches(':focus-visible');
+      toggleChosen(card);
+      if (fromKeyboard && selected.size === 3) passEl.querySelector('.hz-pass-button').focus();
+    }
     else if (state.phase === 'play') tryPlay(card);
   }
   function pointerdown(event) {
@@ -566,7 +574,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     $('.hz-title').textContent = `Hearts — Deal #${state.seed}`;
     $('.hz-menu-mode').textContent = `${daily ? 'Daily · ' : ''}${state.difficulty === 0 ? 'Casual' : 'Standard'}`;
     const passing = state.passDirection === 'hold' ? 'No passing' : `Pass ${state.passDirection}`;
-    $('.hz-status-hand').textContent = `Hand ${state.handNumber} · ${passing}`;
+    $('.hz-status-hand').textContent = `Hand ${state.handNumber + 1} · ${passing}`;
     const hearts = $('.hz-status-hearts');
     hearts.innerHTML = `${heartGlyph(view.heartsBroken ? 'hz-glyph-on' : 'hz-glyph-off')} ${view.heartsBroken ? 'Hearts broken' : 'Hearts not broken'}`;
     $('.hz-status-score').textContent = `You: ${view.scores[0]}`;
@@ -617,7 +625,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     updatePassButton();
     const state = engine.state();
     announce(selected.size === 3
-      ? `Ready to pass ${listCards([...selected].sort(handOrder))} to ${NAMES[DIRECTION_SEAT[state.passDirection]]}. Press P or the Pass button.`
+      ? `Ready to pass ${listCards([...selected].sort(handOrder))} to ${NAMES[DIRECTION_SEAT[state.passDirection]]}.`
       : `${capital(cardName(card))} ${selected.has(card) ? 'chosen' : 'put back'}. ${plural(selected.size, 'card')} of 3 chosen.`);
   }
   function passCards() {
@@ -820,7 +828,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     const order = [0, 1, 2, 3].sort((a, b) => state.scores[a] - state.scores[b] || a - b);
     return order.map((seat) => {
       const hand = state.lastHand?.points[seat] ?? 0;
-      return `<tr${seat === 0 ? ' class="hz-row-you"' : ''}><th scope="row">${NAMES[seat]}</th>${withHand ? `<td class="hz-col-hand">${hand ? `+${hand}` : '0'}</td>` : ''}<td>${state.scores[seat]}</td></tr>`;
+      return `<tr${seat === 0 ? ' class="hz-row-you"' : ''}><th scope="row">${NAMES[seat]}</th>${withHand ? `<td class="hz-col-hand${hand ? '' : ' hz-zero'}">${hand ? `+${hand}` : '0'}</td>` : ''}<td>${state.scores[seat]}</td></tr>`;
     }).join('');
   }
   function showSummary(state) {
@@ -870,7 +878,8 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     if (wonReported) return;
     wonReported = true;
     playSound(won ? 'win' : 'lose');
-    if (won) onWin({ game: 'hearts', seed: state.seed, deal: state.seed, daily, elapsedSeconds: finishedSeconds, scores: [...state.scores], hands: state.history.length, difficulty: state.difficulty });
+    const summary = { game: 'hearts', seed: state.seed, deal: state.seed, daily, elapsedSeconds: finishedSeconds, scores: [...state.scores], hands: state.history.length, difficulty: state.difficulty, replay: engine.replay() };
+    notify(won ? onWin : onLose, summary);
   }
   function showPanel(html, kind = '') {
     panelEl.className = `hz-panel ${kind}`.trim();
@@ -938,7 +947,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
       await wait(pace().hold);
     }
   }
-  function newGame(deal = null, { keepDaily = false } = {}) {
+  function newGame(deal = null, { keepDaily = false, quiet = false } = {}) {
     closeMenus();
     const seed = deal ?? (daily ? dailyDeal() : randomDeal());
     if (deal !== null && !keepDaily) daily = false;
@@ -947,7 +956,8 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     finishedSeconds = null;
     wonReported = false;
     hidePanel();
-    playSound('new-game');
+    if (!quiet) playSound('new-game');
+    notify(onStart);
     announce(daily ? 'Today’s game, the same for everyone. Pass three cards to begin.' : `Deal #${seed}. Good luck: pass three cards to begin.`);
     const state = engine.state();
     return run(async (token) => {
@@ -960,7 +970,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     if (!engine.nextHand()) return;
     hidePanel();
     const state = engine.state();
-    announce(state.passDirection === 'hold' ? `Hand ${state.handNumber}. Everyone keeps their cards.` : `Hand ${state.handNumber}. Pass three cards ${state.passDirection}.`);
+    announce(state.passDirection === 'hold' ? `Hand ${state.handNumber + 1}. Everyone keeps their cards.` : `Hand ${state.handNumber + 1}. Pass three cards ${state.passDirection}.`);
     run(async (token) => {
       await dealHand(state, token);
       if (alive(token)) await animatePlays(0, state, token);
@@ -1005,8 +1015,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     });
     const best = Math.min(...state.scores);
     const body = rows.length ? rows.join('') : `<tr><td colspan="5" class="hz-sheet-empty">No hands finished yet. Scores appear here after each hand.</td></tr>`;
-    host.querySelector('.hz-sheet').innerHTML = `<table class="hz-sheet-table"><thead><tr><th scope="col">Hand</th>${NAMES.map((name, seat) => `<th scope="col"${rows.length && state.scores[seat] === best ? ' class="hz-leader"' : ''}>${name}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
-      <p class="hz-dialog-note">Running totals, with each hand’s points beneath. The game ends when someone reaches 100; the lowest total wins.</p>`;
+    host.querySelector('.hz-sheet').innerHTML = `<table class="hz-sheet-table"><thead><tr><th scope="col">Hand</th>${NAMES.map((name, seat) => `<th scope="col"${rows.length && state.scores[seat] === best ? ' class="hz-leader"' : ''}>${name}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
   }
 
   /* ── menus, dialogs and keys ────────────────────────────────────────── */
@@ -1080,6 +1089,8 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     }
   }
   function keydown(event) {
+    // The card table already acted on this key (for example Enter on a card that was just played).
+    if (event.defaultPrevented) return;
     if (destroyed || !host.isConnected || host.querySelector('dialog[open]') || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
     if (openMenu && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       event.preventDefault();
@@ -1096,8 +1107,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     else if (event.key === 'Escape' && openMenu) closeMenus();
     else if (busy && (event.key === ' ' || event.key === 'Enter' || event.key === 'Escape')) hurry();
     else if (key === 'h') { event.preventDefault(); hint(); }
-    else if (key === 's') { event.preventDefault(); showDialog('scores'); }
-    else if (key === 'p' && engine.state().phase === 'pass') { event.preventDefault(); passCards(); }
+    else if (key === 't') { event.preventDefault(); showDialog('scores'); }
   }
   host.addEventListener('click', click);
   host.addEventListener('submit', submit);
@@ -1111,6 +1121,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
   renderChrome();
   announce(daily ? 'Today’s game, the same for everyone. Pass three cards to begin.' : 'Avoid hearts and the queen of spades. Choose three cards to pass.');
   const first = engine.state();
+  notify(onStart);
   await run(async (token) => {
     await dealHand(first, token);
     if (alive(token)) await animatePlays(0, first, token);
@@ -1156,7 +1167,10 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
       announce('Replay loaded. Pick up where this game left off.');
       settle();
     },
-    newGame,
+    newGame: (deal = null) => newGame(deal, { quiet: true }),
+    hint,
+    state: () => engine.state(),
+    shortcuts: [['← →', 'Choose a card'], ['Enter', 'Play it, or choose it to pass'], ['Drag up', 'Play a card'], ['H', 'Hint'], ['T', 'Score sheet'], ['F2', 'New game']],
     setFidelity(value) {
       fidelity = value === 'pixels' ? 'pixels' : 'crisp';
       host.dataset.fidelity = fidelity;
