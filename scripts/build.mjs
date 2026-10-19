@@ -29,7 +29,7 @@ import { createStaticServer } from './dev.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const args = process.argv.slice(2);
-const origin = (process.env.SITE_URL || 'https://stillplay.vercel.app').replace(/\/+$/, '');
+const origin = (process.env.SITE_URL || 'https://stillplay.shiptiffin.app').replace(/\/+$/, '');
 
 // ---- 1. cores ------------------------------------------------------------------
 const cores = (await readdir(join(root, 'cores'))).filter((name) => name.endsWith('.c')).map((name) => name.slice(0, -2));
@@ -208,6 +208,13 @@ for (const path of paths) {
 }
 
 const prerendered = args.includes('--no-prerender') ? 0 : await prerender(dist, paths, createStaticServer);
+
+// Static hosts redirect /spider to /spider/ when only the folder exists; a flat copy answers /spider directly.
+for (const path of paths) if (path !== '/') await cp(join(dist, path, 'index.html'), join(dist, `${path}.html`));
+// Hosts that serve 404.html for unknown paths get the plain shell; the router then shows its not-found page.
+await writeFile(join(dist, '404.html'), template
+  .replace(/<title>[^<]*<\/title>/, '<title>Not found · Stillplay</title>')
+  .replace('</head>', '  <meta name="robots" content="noindex">\n</head>'));
 
 // ---- 7. sitemap and robots -------------------------------------------------------------
 const today = new Date().toISOString().slice(0, 10);

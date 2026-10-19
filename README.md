@@ -7,6 +7,8 @@
 Minesweeper, FreeCell, Solitaire, Spider Solitaire and Hearts, rebuilt for the browser.<br>
 Nothing to install, no account, no ads. Works offline once you've visited.
 
+**[Play at stillplay.shiptiffin.app](https://stillplay.shiptiffin.app)**
+
 <img src="docs/media/stillplay-loop.webp" alt="Stillplay in motion: dragging a Solitaire run, FreeCell deal 11982, a Spider run lifting away, the queen of spades in Hearts, and Minesweeper flags" width="880">
 
 </div>
@@ -75,7 +77,7 @@ pnpm build
 pnpm preview --port 4179
 ```
 
-`pnpm build --no-cores` reuses the committed WASM. `SITE_URL` sets the absolute origin used in metadata.
+`pnpm build --no-cores` reuses the committed WASM. `SITE_URL` sets the absolute origin used in metadata (default `https://stillplay.shiptiffin.app`).
 
 ## Headless play
 
