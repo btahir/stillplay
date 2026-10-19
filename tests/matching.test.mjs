@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { floorPercent, matchManifest } from '../scripts/match.mjs';
@@ -16,7 +16,7 @@ function executable(code) {
   bytes.set(code, 512); return bytes;
 }
 test('matching compares file-backed bytes, keeps subset coverage unknown and writes only the requested report', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'stillplay-match-'));
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'stillplay-match-')));
   const repositoryRoot = join(directory, 'repo'), originalsDir = join(directory, 'originals');
   try {
     await mkdir(repositoryRoot); await mkdir(originalsDir);

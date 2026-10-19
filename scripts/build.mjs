@@ -2,16 +2,18 @@ import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promi
 import { existsSync } from 'node:fs';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
-const compilerCandidates = [process.env.CLANG, 'clang', 'clang-19', '/tmp/stillplay-toolchain/bin/clang'].filter(Boolean);
+const compilerCandidates = [process.env.CLANG, join(homedir(), '.cache/toolchains/wasi-sdk-34.0-arm64-macos/bin/clang'), 'clang', 'clang-19', '/tmp/stillplay-toolchain/bin/clang'].filter(Boolean);
 const compiler = compilerCandidates.find((command) => spawnSync(command, ['--version'], { encoding: 'utf8' }).status === 0);
 if (!compiler) throw new Error('A WebAssembly-capable clang and wasm-ld are required. Set CLANG=/path/to/clang. See README.md.');
 
-for (const game of ['minesweeper', 'freecell']) {
+const cores = (await readdir(join(root, 'cores'))).filter((name) => name.endsWith('.c')).map((name) => name.slice(0, -2));
+for (const game of cores) {
   const result = spawnSync(compiler, [
     '--target=wasm32', '-O2', '-nostdlib', '-fno-builtin', '-Wl,--no-entry', '-Wl,--export-all',
     '-Wl,--strip-all', join(root, 'cores', `${game}.c`), '-o', join(root, 'cores', `${game}.wasm`),
@@ -29,7 +31,7 @@ if (existsSync(join(root, 'public'))) await cp(join(root, 'public'), dist, { rec
 const index = await readFile(join(dist, 'index.html'), 'utf8');
 const commitResult = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, encoding: 'utf8' });
 const buildCommit = commitResult.status === 0 && /^[a-f0-9]{40}$/.test(commitResult.stdout.trim()) ? commitResult.stdout.trim() : null;
-for (const game of ['minesweeper', 'freecell']) {
+for (const game of (await readdir(join(dist, 'scoreboard'))).filter((name) => name.endsWith('.json')).map((name) => name.slice(0, -5))) {
   const path = join(dist, 'scoreboard', `${game}.json`);
   const data = JSON.parse(await readFile(path, 'utf8'));
   data.buildCommit = buildCommit;
@@ -81,7 +83,7 @@ await compress(dist);
 await mkdir(join(root, 'notes'), { recursive: true });
 await writeFile(join(root, 'notes/payload-sizes.json'), JSON.stringify({ generatedAt: new Date().toISOString(), compiler, buildCommit, files: sizes }, null, 2));
 console.log(`Built dist with ${sizes.length} precompressed assets using ${compiler}.`);
-for (const game of ['minesweeper', 'freecell']) {
+for (const game of cores) {
   const size = sizes.find((item) => item.path === `cores/${game}.wasm`);
   console.log(`${game}: ${size.rawBytes} bytes raw; ${size.brotliBytes} bytes Brotli.`);
 }
