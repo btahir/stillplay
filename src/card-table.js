@@ -35,6 +35,8 @@
  *   faceUpOffset / faceDownOffset: px number or (cardHeight, pile) => px   ('down' piles)
  *   fanOffset: px or (cardWidth) => px                                       ('right' piles)
  *   compress: true  squeeze a 'down' fan so it ends inside the table
+ *   layout: (count, cardW, cardH, pile) => [{ x, y }]   custom spots (replaces the fan)
+ *   passive: true   shown and animated, but left out of keyboard navigation (e.g. completed runs)
  *   grow: true      writes --ct-extent on the pile element (height of the fan) for CSS
  *   depth: true     stacked piles show a little thickness
  *   target: element focused/clicked when the pile is empty (defaults to [data-ct-target] inside it)
@@ -46,7 +48,9 @@
  *     `key` keeps identity when one deck has duplicates (Spider): default key = card.
  *     options.animate: true (default) | false | 'deal'
  *     options.from:    pile id or { x, y } in table pixels — where a 'deal' starts
- *     options.order:   keys in the order they should be dealt
+ *     options.order:   keys in the order they should be dealt. Without 'deal', the listed
+ *                      cards move one after another (`stagger` ms apart) and turn over as
+ *                      they land, like dealing a row from a stock; the rest move as usual.
  *   Returns a promise that settles when the motion ends. Undo is just a sync.
  *
  * ── Other methods ──────────────────────────────────────────────────────────
@@ -55,7 +59,8 @@
  *   table.showHint(from, toPileId)      a short highlight on both ends
  *   table.shake(pileId, index)          gentle "no" on a card
  *   table.focusPile(pileId)             keyboard focus to a pile
- *   table.cascade({ piles, onBounce })  the bouncing-cards win ending; resolves when done or skipped
+ *   table.cascade({ piles, onBounce, limit })  the bouncing-cards win ending (at most `limit`
+ *                                       cards); resolves when done or skipped
  *   table.clearCascade(), table.relayout(), table.announce(text), table.destroy()
  *   table.reducedMotion                 true when motion is reduced
  *
@@ -180,6 +185,7 @@ export function createCardTable(root, options = {}) {
   function paint(entry, faceUp) {
     entry.face.innerHTML = faceUp ? faceMarkup(entry.card) : opts.renderBack(entry.card);
     entry.shown = faceUp;
+    entry.painted = faceUp ? entry.card : null;
     entry.el.classList.toggle('ct-face-down', !faceUp);
   }
   function describe(entry) {
@@ -221,8 +227,11 @@ export function createCardTable(root, options = {}) {
   }
   function layoutPile(pile, rootRect) {
     const { entries, cardW: w, cardH: h } = pile;
-    const spots = [];
-    if (pile.fan === 'down') {
+    let spots = [];
+    if (pile.layout) {
+      spots = pile.layout(entries.length, w, h, pile);
+      pile.extent = Math.max(h, ...spots.map((spot) => spot.y + h));
+    } else if (pile.fan === 'down') {
       const gaps = entries.map((entry) => entry.faceUp ? resolve(pile.faceUpOffset, h, pile) : resolve(pile.faceDownOffset, h, pile));
       const fraction = (value) => value < 1 ? value * h : value;
       let offsets = gaps.slice(0, -1).map(fraction);
@@ -352,6 +361,7 @@ export function createCardTable(root, options = {}) {
         let start = first.get(entry.key);
         let delay = 0;
         let length = duration;
+        const staged = !deal && dealIndex.has(entry.key);
         if (deal && origin && pile.id !== from) {
           start = { left: origin.left, top: origin.top };
           const position = dealIndex.has(entry.key) ? dealIndex.get(entry.key) : dealCount;
@@ -365,7 +375,10 @@ export function createCardTable(root, options = {}) {
         const moving = motion && start && Math.abs(dx) + Math.abs(dy) > 0.5;
         if (moving) {
           stopCardMotion(entry);
-          if (!deal) {
+          if (staged) {
+            delay = dealIndex.get(entry.key) * stagger;
+            length = duration ?? 260;
+          } else if (!deal) {
             const count = movedPerPile.get(pile.id) ?? 0;
             movedPerPile.set(pile.id, count + 1);
             delay = count * 18;
@@ -378,14 +391,14 @@ export function createCardTable(root, options = {}) {
             { duration: length, delay, easing: EASE_MOVE, fill: 'backwards' },
           );
           entry.move = animation;
-          if (deal) setTimeout(() => { if (entry.move === animation) emit('card-deal', 40); }, delay);
+          if (deal || staged) setTimeout(() => { if (entry.move === animation) emit('card-deal', 40); }, delay);
           promises.push(animation.finished.then(() => {
             if (entry.move === animation) { entry.move = null; entry.el.style.zIndex = ''; }
           }, () => {}));
         } else if (!entry.move) entry.el.style.zIndex = '';
-        // Faces.
-        if (entry.shown !== entry.faceUp) {
-          if (motion) promises.push(flip(entry, moving ? delay + (deal ? length - 70 : Math.min(60, length * 0.25)) : 70));
+        // Faces. A key can carry a new card (Spider's next deal reuses the same keys).
+        if (entry.shown !== entry.faceUp || (entry.faceUp && entry.painted !== entry.card)) {
+          if (motion) promises.push(flip(entry, moving ? delay + (deal || staged ? length - 70 : Math.min(60, length * 0.25)) : 70));
           else { cancelFlip(entry); paint(entry, entry.faceUp); }
         }
       });
@@ -516,7 +529,7 @@ export function createCardTable(root, options = {}) {
   }
   function updateTabStops() {
     for (const pile of piles.values()) {
-      const stop = focusTarget(pile);
+      const stop = pile.passive ? null : focusTarget(pile);
       for (const entry of pile.entries) entry.el.tabIndex = entry.el === stop ? 0 : -1;
       if (pile.target) {
         pile.target.tabIndex = pile.target === stop ? 0 : -1;
@@ -540,10 +553,16 @@ export function createCardTable(root, options = {}) {
     const current = currentFocus();
     if (!current) { if (pileList[0]) focusPile(pileList[0].id); return; }
     const pile = piles.get(current.pile);
+    // Passive piles and empty piles without a target cannot take focus; skip them.
+    const reachable = (candidate) => !candidate.passive && focusTarget(candidate);
     if (key === 'ArrowLeft' || key === 'ArrowRight') {
       const row = pileList.filter((candidate) => candidate.row === pile.row);
       const at = row.indexOf(pile);
-      focusPile(row[(at + (key === 'ArrowRight' ? 1 : -1) + row.length) % row.length].id);
+      const direction = key === 'ArrowRight' ? 1 : -1;
+      for (let step = 1; step < row.length; step++) {
+        const candidate = row[(at + direction * step + row.length * step) % row.length];
+        if (reachable(candidate)) { focusPile(candidate.id); return; }
+      }
       return;
     }
     if (pile.fan === 'down' && current.index >= 0) {
@@ -551,12 +570,12 @@ export function createCardTable(root, options = {}) {
       const neighbour = pile.entries[current.index + step];
       if (neighbour && neighbour.faceUp) { neighbour.el.focus(); return; }
     }
-    const rows = [...new Set(pileList.map((candidate) => candidate.row))];
+    const rows = [...new Set(pileList.filter(reachable).map((candidate) => candidate.row))];
     const nextRow = rows[rows.indexOf(pile.row) + (key === 'ArrowUp' ? -1 : 1)];
     if (nextRow === undefined) return;
     const centre = (candidate) => candidate.element.getBoundingClientRect().left + candidate.element.getBoundingClientRect().width / 2;
     const here = centre(pile);
-    const best = pileList.filter((candidate) => candidate.row === nextRow)
+    const best = pileList.filter((candidate) => candidate.row === nextRow && reachable(candidate))
       .sort((a, b) => Math.abs(centre(a) - here) - Math.abs(centre(b) - here))[0];
     if (best) focusPile(best.id);
   }
@@ -814,7 +833,7 @@ export function createCardTable(root, options = {}) {
    * the bottom of the table, leaving trails. Click, tap or press a key to skip.
    * Resolves true when it played (to the end or skipped), false when motion is reduced.
    */
-  async function cascade({ piles: ids = [], onBounce = null, interval = 300 } = {}) {
+  async function cascade({ piles: ids = [], onBounce = null, interval = 300, limit = Infinity } = {}) {
     clearCascade();
     if (reduced() || !root.isConnected) return false;
     const rootRect = root.getBoundingClientRect();
@@ -826,6 +845,7 @@ export function createCardTable(root, options = {}) {
     for (let level = tallest - 1; level >= 0; level--) {
       stacks.forEach((stack, i) => { if (stack[level]) queue.push({ entry: stack[level], pile: piles.get(ids[i]) }); });
     }
+    if (queue.length > limit) queue.length = limit;
     if (!queue.length) return false;
     const scale = Math.min(2, window.devicePixelRatio || 1);
     const canvas = document.createElement('canvas');
