@@ -67,6 +67,12 @@ export async function createFreecell({ deal = 1 } = {}) {
         moves: core.fc_moves(),
       };
     },
+    canMove(from, to, count = 1) {
+      from = location(from);
+      to = location(to);
+      if (!from || !to || !Number.isInteger(count) || count < 1 || count > 52) return false;
+      return Boolean(core.fc_can_move(kinds.indexOf(from.type), from.index, kinds.indexOf(to.type), to.index, count));
+    },
     move(from, to, count = 1) {
       from = location(from);
       to = location(to);
