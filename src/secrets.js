@@ -1,5 +1,4 @@
-import { createMinesweeper } from './minesweeper-core.js';
-import { createFreecell } from './freecell-core.js';
+// Game cores load only when a secret's live demo needs them.
 
 // All illustrations are original SVG, authored for Stillplay.
 const svg = (body) => `<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
@@ -165,6 +164,7 @@ export async function renderSecret(slug, container, { showToast = () => {} } = {
   const find = (selector) => container.querySelector(selector);
 
   if (slug === 'first-click') {
+    const { createMinesweeper } = await import('./minesweeper-core.js');
     const game = await createMinesweeper({ seed: 1 });
     let target;
     function reset() {
@@ -218,6 +218,7 @@ export async function renderSecret(slug, container, { showToast = () => {} } = {
   }
 
   if (slug === 'deal-numbers') {
+    const { createFreecell } = await import('./freecell-core.js');
     const game = await createFreecell({ deal: 1 });
     function deal() {
       const number = Number(find('#secret-deal').value);
