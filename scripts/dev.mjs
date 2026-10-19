@@ -12,7 +12,7 @@ const hostIndex = args.indexOf('--host');
 const host = hostIndex >= 0 ? args[hostIndex + 1] : '127.0.0.1';
 const root = args.includes('--dist') ? resolve(project, 'dist') : project;
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port.');
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.wasm': 'application/wasm', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.c': 'text/plain; charset=utf-8', '.mp4': 'video/mp4' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.wasm': 'application/wasm', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.c': 'text/plain; charset=utf-8', '.mp4': 'video/mp4', '.webm': 'audio/webm', '.m4a': 'audio/mp4' };
 const publicPaths = new Set(['index.html', 'favicon.svg', 'robots.txt', 'manifest.webmanifest']);
 async function fileFor(pathname) {
   if (pathname.includes('\0') || pathname.includes('\\') || pathname.split('/').includes('..')) return null;
