@@ -84,7 +84,7 @@ const ICONS = {
   window: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="2.5" width="12" height="17" rx="1.2" fill="#2c6249" stroke="#fff" stroke-width=".8"/><rect x="9" y="4.5" width="12" height="17" rx="1.2" fill="#fff" stroke="#142b64"/><path d="M15 8.6c-1.9 2.4-4.4 4-4.4 6 0 1.4 1.5 2.1 3 1.2-.1.8-.4 1.3-1.2 1.7h5.2c-.8-.4-1.1-.9-1.2-1.7 1.5.9 3 .2 3-1.2 0-2-2.5-3.6-4.4-6Z" fill="#17201b"/></svg>',
 };
 
-function markup(daily) {
+function markup(daily, chrome) {
   const slot = (label, extra = '') => `<button type="button" class="sp-slot" data-ct-target aria-label="${label}">${extra}</button>`;
   return `<section class="sp-window" aria-label="Spider Solitaire game">
   <div class="sp-titlebar"><span class="sp-title-icon">${ICONS.window}</span><span class="sp-title">Spider Solitaire</span><span class="sp-title-controls" aria-hidden="true"><i></i><i></i><i>×</i></span></div>
@@ -124,13 +124,13 @@ function markup(daily) {
   <div class="sp-statusbar"><span class="sp-status-progress">0 of 8 runs</span><span class="sp-status-score">Score: 500</span><span class="sp-status-moves">Moves: 0</span></div>
 </section>
 <div class="sp-below">
-  <div class="sp-quick-actions">
+  ${chrome ? '' : `<div class="sp-quick-actions">
     <button type="button" data-action="undo">Undo</button><span aria-hidden="true">·</span>
     <button type="button" data-action="hint">Hint</button><span aria-hidden="true">·</span>
     <button type="button" data-action="deal-row">Deal a row</button><span aria-hidden="true">·</span>
     <button type="button" data-action="options">Options</button><span aria-hidden="true">·</span>
     <button type="button" data-action="deal">Choose a deal</button>
-  </div>
+  </div>`}
   <p class="sp-message" role="status" aria-live="polite"></p>
 </div>
 <dialog class="sp-dialog" data-dialog="deal" aria-labelledby="sp-deal-title"><form method="dialog" class="sp-dialog-form" data-form="deal">
@@ -165,7 +165,13 @@ function markup(daily) {
 </div></dialog>`;
 }
 
-export async function mountSpider(container, { daily = false, onWin = () => {}, sound = () => {} } = {}) {
+const SHORTCUTS = [
+  ['Click or drag', 'Move a card or a run'], ['Double-click', 'Make the best move for a card'],
+  ['D · click the stock', 'Deal a new row'], ['H or M', 'Show a move (again for the next)'],
+  ['Ctrl / ⌘ + Z', 'Undo'], ['Arrow keys · Enter', 'Pick up and put down'], ['F2', 'New game'], ['F1', 'How to play'],
+];
+
+export async function mountSpider(container, { daily = false, chrome = false, onWin = () => {}, onStart = () => {}, onLose = () => {}, sound = () => {} } = {}) {
   injectStyles();
   const params = new URLSearchParams(location.search);
   const settings = loadSettings();
@@ -190,7 +196,7 @@ export async function mountSpider(container, { daily = false, onWin = () => {}, 
   const host = document.createElement('div');
   host.className = 'spider-root';
   host.dataset.fidelity = fidelity;
-  host.innerHTML = markup(daily);
+  host.innerHTML = markup(daily, chrome);
   container.replaceChildren(host);
   const $ = (selector) => host.querySelector(selector);
   const felt = $('.sp-felt');
@@ -556,8 +562,12 @@ export async function mountSpider(container, { daily = false, onWin = () => {}, 
     for (let row = 0; row < 6; row++) state.columns.forEach((column) => { if (column[row]) order.push(column[row].uid); });
     return order;
   }
-  async function newGame(deal = null, { keepDaily = false } = {}) {
+  async function newGame(deal = null, { keepDaily = false, quiet = false } = {}) {
     closeMenus();
+    const current = engine.state();
+    if (current.status !== 'won' && current.moves > 0 && !current.hasMoves) {
+      try { onLose({ game: 'spider', seed: current.seed, deal: current.seed, suits: current.suits, moves: current.moves, score: current.score, daily, elapsedSeconds: elapsed() }); } catch { /* optional */ }
+    }
     ticket += 1;
     const seed = deal ?? (daily ? dailyDeal() : randomDeal());
     if (deal !== null && !keepDaily) daily = false;
@@ -569,11 +579,13 @@ export async function mountSpider(container, { daily = false, onWin = () => {}, 
     hidePanels();
     announce(daily ? 'Today’s deal, the same for everyone. The daily is always one suit.' : `A fresh deal, ${SUIT_WORDS[state.suits].toLowerCase()}. Good luck.`);
     renderChrome(state);
-    playSound('new-game');
-    await dealOut(piles(state), { from: 's', order: dealOrder(state), stagger: 18 });
+    if (!quiet) playSound('new-game');
+    const dealt = dealOut(piles(state), { from: 's', order: dealOrder(state), stagger: 18 });
+    try { onStart(); } catch { /* optional */ }
+    await dealt;
   }
   function undo() {
-    if (!engine.undo()) { announce('You are at the start of this deal.'); return; }
+    if (!engine.undo()) { announce('You are at the start of this deal.'); return false; }
     ticket += 1;
     table.clearCascade();
     playSound('undo');
@@ -582,8 +594,9 @@ export async function mountSpider(container, { daily = false, onWin = () => {}, 
     const state = engine.state();
     updateRuns(state);
     renderChrome(state);
-    announce(`One step back. Undo costs a point, like any move.`);
+    announce('One step back. Undo costs a point, like any move.');
     draw(piles(state));
+    return true;
   }
   function hint() {
     const state = engine.state();
@@ -701,7 +714,9 @@ export async function mountSpider(container, { daily = false, onWin = () => {}, 
   renderChrome();
   const initial = engine.state();
   announce(daily ? 'Today’s deal, the same for everyone. The daily is always one suit.' : 'Build each suit from king down to ace. Drag a card, or tap it and then its new place.');
-  await dealOut(piles(initial), { from: 's', order: dealOrder(initial), stagger: 18 }).catch(() => {});
+  const opening = dealOut(piles(initial), { from: 's', order: dealOrder(initial), stagger: 18 }).catch(() => {});
+  try { onStart(); } catch { /* optional */ }
+  await opening;
 
   return {
     destroy() {
@@ -733,7 +748,15 @@ export async function mountSpider(container, { daily = false, onWin = () => {}, 
       await draw(piles(state), { animate: false });
       settle(state);
     },
-    newGame,
+    newGame: (deal = null) => newGame(deal, { quiet: chrome }),
+    undo,
+    canUndo: () => engine.canUndo(),
+    hint,
+    state() {
+      const state = engine.state();
+      return { ...state, status: state.status === 'playing' && state.moves === 0 ? 'ready' : state.status };
+    },
+    shortcuts: SHORTCUTS,
     setFidelity(value) {
       fidelity = value === 'pixels' ? 'pixels' : 'crisp';
       host.dataset.fidelity = fidelity;
