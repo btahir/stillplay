@@ -35,6 +35,9 @@ function randomDeal() {
   return values[0] % 1000000 + 1;
 }
 
+/** The keyboard and mouse sheet the site shows for this game (the shell reads it from the handle). */
+const SHORTCUTS = [['Click or drag', 'Move a card'], ['Double-click · Shift + Enter', 'Send a card home'], ['D', 'Turn the stock'], ['Ctrl / ⌘ + Z', 'Undo'], ['H', 'Hint'], ['F', 'Finish when every card is face up'], ['Arrow keys · Enter', 'Pick up and put down'], ['F2', 'New deal'], ['F1', 'How to play']];
+
 function injectStyles() {
   if (document.querySelector('link[data-solitaire-styles]')) return;
   const link = document.createElement('link');
@@ -52,7 +55,7 @@ const ICONS = {
   done: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m7.6 16.4 8.8-8.8" stroke="currentColor" stroke-width="1.6"/></svg>',
 };
 
-function markup(daily) {
+function markup(daily, chrome) {
   const slot = (label, extra = '') => `<button type="button" class="sol-slot" data-ct-target aria-label="${label}">${extra}</button>`;
   return `<section class="sol-window" aria-label="Solitaire game">
   <div class="sol-titlebar"><span class="sol-title-icon">${ICONS.window}</span><span class="sol-title">Solitaire</span><span class="sol-title-controls" aria-hidden="true"><i></i><i></i><i>×</i></span></div>
@@ -91,8 +94,8 @@ function markup(daily) {
 </section>
 <div class="sol-below">
   <div class="sol-quick-actions">
-    <button type="button" data-action="undo">Undo</button><span aria-hidden="true">·</span>
-    <button type="button" data-action="hint">Hint</button><span aria-hidden="true">·</span>
+    ${chrome ? '' : `<button type="button" data-action="undo">Undo</button><span aria-hidden="true">·</span>
+    <button type="button" data-action="hint">Hint</button><span aria-hidden="true">·</span>`}
     <button type="button" data-action="finish" class="sol-finish" hidden>Finish for me</button><span aria-hidden="true" class="sol-finish-dot" hidden>·</span>
     <button type="button" data-action="options">Options</button><span aria-hidden="true">·</span>
     <button type="button" data-action="deal">Choose a deal</button>
@@ -138,7 +141,7 @@ function markup(daily) {
 </div></dialog>`;
 }
 
-export async function mountSolitaire(container, { daily = false, onWin = () => {}, sound = () => {} } = {}) {
+export async function mountSolitaire(container, { daily = false, onWin = () => {}, onStart = () => {}, sound = () => {}, chrome = false } = {}) {
   injectStyles();
   const params = new URLSearchParams(location.search);
   const settings = loadSettings();
@@ -162,7 +165,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
   const host = document.createElement('div');
   host.className = 'solitaire-root';
   host.dataset.fidelity = fidelity;
-  host.innerHTML = markup(daily);
+  host.innerHTML = markup(daily, chrome);
   container.replaceChildren(host);
   const $ = (selector) => host.querySelector(selector);
   const felt = $('.sol-felt');
@@ -305,9 +308,14 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
 
   function performMove(from, to, count) {
     stopRunning();
+    const before = engine.state();
+    const length = from === 'w' ? before.waste.length : from[0] === 't' ? before.tableau[Number(from[1])].length : before.foundations[Number(from[1])].rank;
+    const card = cardAt(from, length - count);
     if (!engine.move(from, to, count)) { playSound('invalid'); return false; }
     startClock();
     playSound(to[0] === 'h' ? 'foundation' : 'card-place');
+    // Replace the "choose where it goes" prompt left by the first click of a double-click.
+    announce(to[0] === 'h' ? `${capital(cardName(card))} goes home.` : `${capital(cardName(card))}${count > 1 ? ` and ${plural(count - 1, 'card')} on it` : ''} to ${pileLabel(to)}.`);
     after();
     return true;
   }
@@ -375,12 +383,18 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     if (destroyed || engine.state().status !== 'won') return;
     await table.cascade({ piles: FOUNDATIONS });
     if (destroyed || engine.state().status !== 'won') return;
+    const summary = {
+      game: 'solitaire', seed: state.seed, deal: state.seed, daily, elapsedSeconds: seconds, moves: state.moves, score: final, bonus,
+      draw: state.draw, scoring: state.scoring, variant: `draw ${state.draw === 3 ? 'three' : 'one'}`, params: { deal: state.seed, draw: state.draw },
+    };
+    announce(`You won deal #${state.seed} in ${plural(state.moves, 'move')}.`);
+    // In the site shell the win dialog is the one result screen.
+    if (chrome) { onWin(summary); return; }
     const scoreLine = final === null ? '' : state.scoring === 'vegas' ? ` · ${money(final)}` : ` · ${final.toLocaleString('en')} points`;
     winEl.innerHTML = `<span class="sol-win-kicker">${daily ? 'Today’s deal, done.' : 'Every card is home.'}</span><strong>You won deal #${state.seed}.</strong><p>${plural(state.moves, 'move')} · ${clock(seconds)}${scoreLine}${bonus ? `<br>Includes a time bonus of ${bonus.toLocaleString('en')}.` : ''}</p><div class="sol-win-actions"><button type="button" class="sol-classic-button sol-default-button" data-action="new">Deal again</button><button type="button" class="sol-text-button" data-action="same">Replay this deal</button></div>`;
     winEl.hidden = false;
     winEl.querySelector('[data-action="new"]').focus({ preventScroll: true });
-    announce(`You won deal #${state.seed} in ${plural(state.moves, 'move')}.`);
-    onWin({ game: 'solitaire', seed: state.seed, deal: state.seed, daily, elapsedSeconds: seconds, moves: state.moves, score: final, bonus, draw: state.draw, scoring: state.scoring });
+    onWin(summary);
   }
 
   async function newGame(deal = null, { keepDaily = false } = {}) {
@@ -396,31 +410,34 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     winEl.hidden = true;
     announce(daily ? 'Today’s deal, the same for everyone. Take your time.' : 'A fresh deal. Good luck.');
     renderChrome(state);
+    onStart();
     playSound('card-shuffle');
     await table.deal(pileState(state), { from: 's', order: dealOrder(state), stagger: 26 });
   }
+  /** Take back one move. Returns whether there was a move to take back. */
   function undo() {
     stopRunning();
-    if (!engine.undo()) { announce('You are at the start of this deal.'); return; }
+    if (!engine.undo()) { announce('You are at the start of this deal.'); return false; }
     playSound('undo');
     if (wonReported) { wonReported = false; finishedSeconds = null; winEl.hidden = true; if (started) ticker = setInterval(() => renderChrome(), 1000); }
     announce('One step back.');
     update();
+    return true;
   }
   function hint() {
     const suggestion = engine.hint();
     const state = engine.state();
-    if (!suggestion) { announce('No moves left to suggest. Undo, or try a new deal.'); return; }
+    if (!suggestion) { announce('No moves left to suggest. Undo, or try a new deal.'); return false; }
     if (suggestion.action === 'draw' || suggestion.action === 'recycle') {
       table.showHint({ pile: 's', index: Math.max(0, state.stock.length - 1), count: 1 }, null);
       announce(suggestion.action === 'draw' ? 'Try turning the stock.' : 'Try turning the waste back over.');
-      return;
+      return true;
     }
     if (suggestion.action === 'flip') {
       const id = `t${suggestion.column}`;
       table.showHint({ pile: id, index: state.tableau[suggestion.column].length - 1, count: 1 }, null);
       announce(`Turn over the top card of ${pileLabel(id)}.`);
-      return;
+      return true;
     }
     const from = suggestion.from.type === 'waste' ? 'w' : `${suggestion.from.type[0] === 't' ? 't' : 'h'}${suggestion.from.index}`;
     const to = `${suggestion.to.type === 'tableau' ? 't' : 'h'}${suggestion.to.index}`;
@@ -428,6 +445,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     const index = length - suggestion.count;
     table.showHint({ pile: from, index, count: suggestion.count }, to);
     announce(`Try ${cardName(cardAt(from, index))}${suggestion.count > 1 ? ' and the cards on it' : ''} on ${to[0] === 'h' ? 'a foundation' : pileLabel(to)}.`);
+    return true;
   }
 
   /* Menus, dialogs and keys. */
@@ -446,7 +464,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     trigger.classList.add('sol-menu-active');
     const menu = host.querySelector(`[data-menu="${name}"]`);
     menu.hidden = false;
-    menu.querySelector('button:not(:disabled)')?.focus();
+    menu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
   }
   function showDialog(name) {
     closeMenus();
@@ -519,7 +537,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     const key = event.key.toLowerCase();
     if (event.key === 'F2') { event.preventDefault(); newGame(); }
     else if (event.key === 'F1') { event.preventDefault(); showDialog('help'); }
-    else if ((event.ctrlKey || event.metaKey) && key === 'z') { event.preventDefault(); undo(); }
+    else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === 'z') { event.preventDefault(); undo(); }
     else if (event.ctrlKey || event.metaKey || event.altKey) return;
     else if (key === 'h') { event.preventDefault(); hint(); }
     else if (key === 'f' && engine.state().canAutoFinish) { event.preventDefault(); finish(); }
@@ -531,6 +549,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
   document.addEventListener('keydown', keydown);
 
   renderChrome();
+  onStart();
   const initial = engine.state();
   await table.deal(pileState(initial), { from: 's', order: dealOrder(initial), stagger: 26 }).catch(() => {});
   if (!destroyed) announce(message);
@@ -557,11 +576,16 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
       wonReported = false;
       winEl.hidden = true;
       bankStart = 0;
-      announce('Replay loaded. Pick up where this deal left off.');
+      announce(chrome ? '' : 'Replay loaded. Pick up where this deal left off.');
       await update(false);
       if (state.status === 'won') celebrate(Promise.resolve());
     },
     newGame,
+    undo,
+    canUndo: () => engine.state().moves > 0,
+    hint,
+    state: () => engine.state(),
+    shortcuts: SHORTCUTS,
     setFidelity(value) {
       fidelity = value === 'pixels' ? 'pixels' : 'crisp';
       host.dataset.fidelity = fidelity;

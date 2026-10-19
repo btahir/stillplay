@@ -367,7 +367,7 @@ export function createCardTable(root, options = {}) {
           const position = dealIndex.has(entry.key) ? dealIndex.get(entry.key) : dealCount;
           dealCount += 1;
           delay = position * stagger;
-          length = duration ?? 260;
+          length = duration ?? DEAL_FLIGHT;
           if (entry.shown) paint(entry, false);
         }
         const dx = start ? start.left - (pile.ox + x) : 0;
@@ -436,7 +436,52 @@ export function createCardTable(root, options = {}) {
   }
 
   /** Move every card to `from`, then deal `state` out of it. */
-  async function deal(state, { from, order, stagger } = {}) {
+  /*
+   * Opening deals stay brisk: however many cards there are, the last one lands within
+   * DEAL_BUDGET ms (Spider's 54 and Hearts' 52 included). Any click or key while cards are
+   * still flying finishes the deal at once.
+   */
+  const DEAL_BUDGET = 1150;
+  const DEAL_FLIGHT = 240;
+  const DEAL_FLIP_TAIL = 130;
+  let dealing = 0;
+  function finishDeal() {
+    // Twice: a flip's second half only starts once its first half has finished.
+    const finishAll = () => { for (const animation of root.getAnimations({ subtree: true })) { try { animation.finish(); } catch { /* infinite or idle */ } } };
+    finishAll();
+    setTimeout(finishAll, 0);
+  }
+  function dealInput(event) {
+    if (!dealing) return;
+    finishDeal();
+    if (event.type === 'pointerdown' && root.contains(event.target)) { event.preventDefault(); event.stopPropagation(); }
+  }
+
+  async function deal(state, { from, order, stagger = 22 } = {}) {
+    const count = Array.isArray(order) && order.length ? order.length : normalizeCount(state);
+    const brisk = Math.max(0, Math.min(stagger, (DEAL_BUDGET - DEAL_FLIGHT - DEAL_FLIP_TAIL) / Math.max(1, count - 1)));
+    dealing += 1;
+    if (dealing === 1) {
+      root.addEventListener('pointerdown', dealInput, true);
+      window.addEventListener('keydown', dealInput, true);
+    }
+    try {
+      return await dealMotion(state, { from, order, stagger: brisk });
+    } finally {
+      dealing -= 1;
+      if (!dealing) {
+        root.removeEventListener('pointerdown', dealInput, true);
+        window.removeEventListener('keydown', dealInput, true);
+      }
+    }
+  }
+  function normalizeCount(state) {
+    let total = 0;
+    for (const [, { list }] of normalize(state)) total += list.length;
+    return total;
+  }
+
+  async function dealMotion(state, { from, order, stagger }) {
     if (!reduced() && cards.size && root.isConnected) {
       measurePiles();
       const rootRect = root.getBoundingClientRect();
@@ -452,7 +497,7 @@ export function createCardTable(root, options = {}) {
           cancelFlip(entry);
           const x = point.left - pile.ox, y = point.top - pile.oy;
           const animation = entry.el.animate([{ transform: entry.el.style.transform }, { transform: `translate(${x}px, ${y}px)` }],
-            { duration: 240, delay: Math.min(index++ * 4, 160), easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
+            { duration: 200, delay: Math.min(index++ * 3, 100), easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
           entry.move = animation;
           gathers.push(animation.finished.catch(() => {}));
         }
@@ -986,6 +1031,8 @@ export function createCardTable(root, options = {}) {
       root.removeEventListener('click', click);
       root.removeEventListener('keydown', keydown);
       root.removeEventListener('contextmenu', contextmenu);
+      root.removeEventListener('pointerdown', dealInput, true);
+      window.removeEventListener('keydown', dealInput, true);
       liveRegion?.remove();
     },
   };

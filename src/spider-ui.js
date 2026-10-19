@@ -550,11 +550,17 @@ export async function mountSpider(container, { daily = false, chrome = false, on
     const mine = ticket;
     await table.cascade({ piles: RUN_PILES, limit: CASCADE_CARDS });
     if (destroyed || mine !== ticket || engine.state().status !== 'won') return;
+    const summary = {
+      game: 'spider', seed: state.seed, deal: state.seed, suits: state.suits, score: state.score, moves: state.moves, daily, elapsedSeconds: seconds,
+      variant: SUIT_WORDS[state.suits].toLowerCase(), params: { deal: state.seed, suits: state.suits },
+    };
+    // In the site shell the win dialog is the one result screen.
+    if (chrome) { announce(`You won deal #${state.seed} in ${plural(state.moves, 'move')}.`); onWin(summary); return; }
     winEl.innerHTML = `<span class="sp-win-kicker">${daily ? 'Today’s deal, done.' : 'All eight runs are home.'}</span><strong>You won deal #${state.seed}.</strong><p>${SUIT_WORDS[state.suits]} · ${plural(state.moves, 'move')}${seconds ? ` · ${clock(seconds)}` : ''}<br>Final score ${state.score.toLocaleString('en')}</p><div class="sp-panel-actions sp-win-actions"><button type="button" class="sp-classic-button sp-default-button" data-action="new">Deal again</button><button type="button" class="sp-text-button" data-action="same">Replay this deal</button></div>`;
     winEl.hidden = false;
     winEl.querySelector('[data-action="new"]').focus({ preventScroll: true });
     announce(`You won deal #${state.seed} in ${plural(state.moves, 'move')}.`);
-    onWin({ game: 'spider', seed: state.seed, deal: state.seed, suits: state.suits, score: state.score, moves: state.moves, daily, elapsedSeconds: seconds });
+    onWin(summary);
   }
 
   function dealOrder(state) {
@@ -744,7 +750,7 @@ export async function mountSpider(container, { daily = false, chrome = false, on
       const state = engine.state();
       updateRuns(state);
       renderChrome(state);
-      announce('Replay loaded. Pick up where this deal left off.');
+      announce(chrome ? '' : 'Replay loaded. Pick up where this deal left off.');
       await draw(piles(state), { animate: false });
       settle(state);
     },

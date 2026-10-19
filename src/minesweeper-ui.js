@@ -8,12 +8,29 @@ const segments={a:'3,1 12,1 14,3 12,5 3,5 1,3',b:'13,4 15,6 15,12 13,14 11,12 11
 function led(number){return String(Math.max(-99,Math.min(999,number))).padStart(3,'0').split('').map(d=>`<svg viewBox="0 0 15 28" aria-hidden="true">${Object.entries(segments).map(([k,p])=>`<polygon points="${p}" fill="${(d==='-'?k==='g':digits[Number(d)].includes(k))?'#ff493b':'#402b24'}"/>`).join('')}</svg>`).join('');}
 function storageGet(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
 function storageSet(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
-export async function mountMinesweeper(container,{daily=false,level='beginner',seed,onWin=()=>{},showDialog=()=>{},showToast=()=>{},sound=()=>{},mini=false}={}){
+/** The keyboard and mouse sheet the site shows for this game (the shell reads it from the handle). */
+const SHORTCUTS = [['Click', 'Reveal a square'], ['Right-click · long press · F', 'Place or remove a flag'], ['Click a number', 'Clear its neighbours'], ['Arrow keys', 'Move between squares'], ['F2', 'New game']];
+
+const flagIcon='<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M4 2v10M2 12h7" fill="none" stroke="currentColor"/><path d="M4 2h7L8 5l3 3H4z" fill="currentColor"/></svg>';
+
+/** The row under the window. In the site shell only flag mode is left; standalone it also carries drawing and sound. */
+function toolbar(chrome) {
+  const flag = `<button type="button" class="flag-mode" aria-pressed="false">${flagIcon}<span>Flag mode</span></button>`;
+  if (chrome) return `<div class="game-toolbar" data-chrome>${flag}</div>`;
+  const sound = storageGet('stillplay-sound', false);
+  return `<div class="game-toolbar">${flag}<span class="separator"></span><button type="button" class="fidelity-toggle">Original pixels</button><span class="separator"></span><button type="button" class="sound-toggle" aria-pressed="${sound}">Sound ${sound ? 'on' : 'off'}</button></div>`;
+}
+
+/**
+ * Mount Minesweeper. With `chrome: true` the site toolbar already offers new game, sound and the
+ * drawing mode, so only the flag-mode toggle (needed on touch screens) is drawn below the window.
+ */
+export async function mountMinesweeper(container,{daily=false,level='beginner',seed,onWin=()=>{},onStart=()=>{},onLose=()=>{},showDialog=()=>{},showToast=()=>{},sound=()=>{},mini=false,chrome=false}={}){
   const q=new URLSearchParams(location.search);if(!mini&&!daily){level=q.get('level')||level;const n=Number(q.get('seed'));if(q.has('seed')&&Number.isInteger(n)&&n>=0&&n<=0xffffffff)seed=n;}
   if(!['beginner','intermediate','expert'].includes(level))level='beginner';
   seed=seed??(daily?dailySeed():crypto.getRandomValues(new Uint32Array(1))[0]);
-  let game=await createMinesweeper({level,seed}), flagMode=false, fidelity=storageGet('stillplay-fidelity','pixels'), start=0, elapsed=0, frozenTime=0, wonShown=false, destroyed=false, pressTimer, longPressed=false, pointerDown=0;
-  container.innerHTML=`<div class="game-window" data-game="minesweeper"><div class="game-titlebar"><span>${mineIcon}Minesweeper</span><div class="window-controls" aria-hidden="true"><span>_</span><span>□</span><span>×</span></div></div><div class="game-menubar"><button class="menu-toggle" id="mine-game-toggle" aria-expanded="false">Game</button><button class="menu-toggle" id="mine-help">Help</button><div class="game-menu" id="mine-menu"><button data-level="new">New game <span>F2</span></button><hr><button data-level="beginner">Beginner <span>9 × 9</span></button><button data-level="intermediate">Intermediate <span>16 × 16</span></button><button data-level="expert">Expert <span>30 × 16</span></button><hr><button data-level="times">Best times…</button></div></div><div class="mine-frame"><div class="mine-dashboard"><div class="led-display mine-counter" role="img" aria-label="10 mines remaining"></div><button class="face-button" aria-label="New game" title="New game (F2)"></button><div class="led-display mine-time" role="timer" aria-label="0 seconds"></div></div><div class="mine-board"><canvas aria-hidden="true"></canvas><div class="cell-overlay" role="group" aria-label="Minesweeper board"></div></div></div><div class="game-statusbar"><span class="mine-status">Beginner</span><span class="mine-help-text">Right-click to flag</span></div></div>${mini?'':`<div class="game-toolbar"><button class="flag-mode" aria-pressed="false"><svg viewBox="0 0 14 14" width="11" height="11" aria-hidden="true"><path d="M4 2v10M2 12h7" fill="none" stroke="currentColor"/><path d="M4 2h7L8 5l3 3H4z" fill="currentColor"/></svg> Flag mode</button><span class="separator"></span><button class="fidelity-toggle">Original pixels</button><span class="separator"></span><button class="sound-toggle" aria-pressed="${storageGet('stillplay-sound',false)}">Sound ${storageGet('stillplay-sound',false)?'on':'off'}</button></div>`}`;
+  let game=await createMinesweeper({level,seed}), flagMode=false, fidelity=storageGet('stillplay-fidelity','pixels'), start=0, elapsed=0, frozenTime=0, wonShown=false, lostShown=false, destroyed=false, pressTimer, longPressed=false, pointerDown=0;
+  container.innerHTML=`<div class="game-window" data-game="minesweeper"><div class="game-titlebar"><span>${mineIcon}Minesweeper</span><div class="window-controls" aria-hidden="true"><span>_</span><span>□</span><span>×</span></div></div><div class="game-menubar"><button class="menu-toggle" id="mine-game-toggle" aria-expanded="false">Game</button><button class="menu-toggle" id="mine-help">Help</button><div class="game-menu" id="mine-menu"><button data-level="new">New game <span>F2</span></button><hr><button data-level="beginner">Beginner <span>9 × 9</span></button><button data-level="intermediate">Intermediate <span>16 × 16</span></button><button data-level="expert">Expert <span>30 × 16</span></button><hr><button data-level="times">Best times…</button></div></div><div class="mine-frame"><div class="mine-dashboard"><div class="led-display mine-counter" role="img" aria-label="10 mines remaining"></div><button class="face-button" aria-label="New game" title="New game (F2)"></button><div class="led-display mine-time" role="timer" aria-label="0 seconds"></div></div><div class="mine-board"><canvas aria-hidden="true"></canvas><div class="cell-overlay" role="group" aria-label="Minesweeper board"></div></div></div><div class="game-statusbar"><span class="mine-status">Beginner</span><span class="mine-help-text">Right-click to flag</span></div></div>${mini?'':toolbar(chrome)}`;
   const windowEl=container.querySelector('.game-window'),canvas=container.querySelector('canvas'),overlay=container.querySelector('.cell-overlay'),board=container.querySelector('.mine-board'),menu=container.querySelector('.game-menu'),menuToggle=container.querySelector('#mine-game-toggle');
   let cellSize=30,lastShape='';
   function closeMenu(){menu.classList.remove('open');menuToggle.setAttribute('aria-expanded','false');}
@@ -34,8 +51,13 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
     });
     container.querySelector('.mine-counter').innerHTML=led(state.mines-state.flags);container.querySelector('.mine-counter').setAttribute('aria-label',`${state.mines-state.flags} mines remaining`);container.querySelector('.face-button').innerHTML=smile(state.status);
     container.querySelector('.mine-status').textContent=state.status==='won'?'Field cleared. Nicely done.':state.status==='lost'?'One more round?':`${state.level[0].toUpperCase()+state.level.slice(1)}${daily?' · Daily':''}`;
-    if(state.status==='won'&&!wonShown){wonShown=true;frozenTime=elapsed;const key=`stillplay-best-${state.level}`;const prev=storageGet(key,null);if(prev===null||elapsed<prev)storageSet(key,elapsed);queueMicrotask(()=>onWin({game:'minesweeper',level:state.level,seed:state.seed,elapsedSeconds:elapsed,daily,flags:game.replay().actions.filter(a=>a.type==='flag').length,replay:game.replay()}));}
-    if(state.status==='lost'&&!frozenTime)frozenTime=elapsed;
+    if(state.status==='won'&&!wonShown){wonShown=true;frozenTime=elapsed;const key=`stillplay-best-${state.level}`;const prev=storageGet(key,null);if(prev===null||elapsed<prev)storageSet(key,elapsed);queueMicrotask(()=>onWin({game:'minesweeper',level:state.level,seed:state.seed,elapsedSeconds:elapsed,daily,flags:game.replay().actions.filter(a=>a.type==='flag').length,replay:game.replay(),params:{level:state.level,seed:state.seed}}));}
+    if(state.status==='lost'&&!lostShown){
+      lostShown=true;
+      if(!frozenTime)frozenTime=elapsed;
+      const replay=game.replay();
+      queueMicrotask(()=>onLose({game:'minesweeper',level:state.level,seed:state.seed,elapsedSeconds:elapsed,daily,replay}));
+    }
     updateTime();
   }
   function updateTime(){if(start&&game.state().status==='playing')elapsed=Math.min(999,Math.floor((performance.now()-start)/1000));container.querySelector('.mine-time').innerHTML=led(elapsed);container.querySelector('.mine-time').setAttribute('aria-label',`${elapsed} seconds`);}
@@ -50,7 +72,7 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
     else if(opened>1)sound('reveal-cascade');
     else if(opened===1)sound('reveal');
   }
-  function newGame(nextLevel=game.state().level, nextSeed){if(container.id==='hero-game'&&nextLevel!=='beginner'){location.assign('/minesweeper?level='+nextLevel);return;}level=nextLevel;seed=nextSeed??(daily?dailySeed():crypto.getRandomValues(new Uint32Array(1))[0]);game.newGame({level,seed});start=0;elapsed=0;frozenTime=0;wonShown=false;closeMenu();paint();}
+  function newGame(nextLevel=game.state().level, nextSeed){if(container.id==='hero-game'&&nextLevel!=='beginner'){location.assign('/minesweeper?level='+nextLevel);return;}level=nextLevel;seed=nextSeed??(daily?dailySeed():crypto.getRandomValues(new Uint32Array(1))[0]);game.newGame({level,seed});start=0;elapsed=0;frozenTime=0;wonShown=false;lostShown=false;closeMenu();paint();onStart();}
   overlay.addEventListener('click',e=>{const b=e.target.closest('[data-cell]');if(!b||longPressed){longPressed=false;return;}action(flagMode?'flag':'reveal',Number(b.dataset.cell));});
   overlay.addEventListener('contextmenu',e=>{e.preventDefault();const b=e.target.closest('[data-cell]');if(b)action('flag',Number(b.dataset.cell));});
   overlay.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-cell]');if(!b||e.pointerType==='mouse')return;pointerDown=Number(b.dataset.cell);longPressed=false;pressTimer=setTimeout(()=>{longPressed=true;action('flag',pointerDown);navigator.vibrate?.(20);},450);});
@@ -66,5 +88,5 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
   container.querySelector('.sound-toggle')?.addEventListener('click',e=>{const on=!storageGet('stillplay-sound',false);storageSet('stillplay-sound',on);e.currentTarget.textContent=`Sound ${on?'on':'off'}`;e.currentTarget.setAttribute('aria-pressed',String(on));if(on)sound('toggle-on');});
   function keyboard(e){if(e.key==='F2'&&!document.querySelector('dialog[open]')){e.preventDefault();sound('new-game');newGame();}if(e.key==='Escape')closeMenu();}
   document.addEventListener('keydown',keyboard);window.addEventListener('resize',paint);const timer=setInterval(updateTime,250);setFidelity(fidelity);
-  return {destroy(){destroyed=true;clearInterval(timer);clearTimeout(pressTimer);document.removeEventListener('keydown',keyboard);window.removeEventListener('resize',paint);},exportReplay:()=>game.replay(),loadReplay(replay){game.loadReplay(replay);elapsed=Math.floor((replay.actions.at(-1)?.t||0)/1000);start=game.state().status==='playing'?performance.now()-elapsed*1000:0;wonShown=true;paint();},newGame,setFidelity,state:()=>game.state()};
+  return {destroy(){destroyed=true;clearInterval(timer);clearTimeout(pressTimer);document.removeEventListener('keydown',keyboard);window.removeEventListener('resize',paint);},exportReplay:()=>game.replay(),loadReplay(replay){game.loadReplay(replay);elapsed=Math.floor((replay.actions.at(-1)?.t||0)/1000);start=game.state().status==='playing'?performance.now()-elapsed*1000:0;wonShown=true;lostShown=game.state().status==='lost';paint();},newGame,setFidelity,state:()=>game.state(),shortcuts:SHORTCUTS};
 }

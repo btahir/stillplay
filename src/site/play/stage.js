@@ -17,6 +17,23 @@ import { recordStart, recordWin } from './stats.js';
 const FIDELITY_KEY = 'stillplay-fidelity';
 let activeStage = null;
 
+/**
+ * Single-letter keys a game's shortcut list names (e.g. ['H or M', 'Show a move'] claims h and m).
+ * On that game's page the shell leaves those keys to the game and stops advertising them.
+ */
+export function claimedKeys(shortcuts) {
+  const keys = new Set();
+  for (const [combo] of Array.isArray(shortcuts) ? shortcuts : []) {
+    for (const part of String(combo).split(' · ')) {
+      if (/ctrl|⌘|shift|alt/i.test(part)) continue; // the shell never uses modified keys
+      for (const token of part.split(' or ')) {
+        if (/^[A-Z?]$/.test(token.trim())) keys.add(token.trim().toLowerCase());
+      }
+    }
+  }
+  return keys;
+}
+
 function button(command, iconName, label, { tip = label, pressed, hidden = false, extraClass = '' } = {}) {
   return `<button type="button" class="chrome-button ${extraClass}" data-command="${command}"${pressed === undefined ? '' : ` aria-pressed="${pressed}"`}${hidden ? ' hidden' : ''} data-tip="${escape(tip)}">${icon(iconName)}<span class="chrome-label">${escape(label)}</span></button>`;
 }
@@ -56,6 +73,7 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
   let handle = null;
   let destroyed = false;
   let session = { counted: false };
+  let claimed = claimedKeys(game.shortcuts);
 
   container.innerHTML = `<div class="stage" data-variant="${variant}" data-game="${game.id}">${chromeHTML(game, { daily, variant })}<div class="stage-surface"><div class="stage-game" id="${gameElementId}"><div class="loading-game" role="status">${escape(game.loading)}</div></div></div></div>`;
   const stage = container.querySelector('.stage');
@@ -85,7 +103,7 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
     rearm();
     import('./win.js').then(({ showWin }) => {
       if (destroyed) return;
-      showWin({ game, summary, stats, handle });
+      showWin({ game, summary, stats, handle, onAgain: () => command('new') });
       onWinShown?.(summary);
     }).catch(() => showToast('Nicely done.'));
   }
@@ -162,7 +180,7 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
     else if (name === 'fidelity') setFidelity(fidelity === 'pixels' ? 'crisp' : 'pixels');
     else if (name === 'stats') (await import('./win.js')).showStats(game);
     else if (name === 'focus') setFocus(document.documentElement.dataset.focus !== 'on');
-    else if (name === 'keys') (await import('./win.js')).showShortcuts(game, handle);
+    else if (name === 'keys') (await import('./win.js')).showShortcuts(game, handle, claimed);
     refresh();
   }
   stage.querySelector('.chrome').addEventListener('click', (event) => {
@@ -175,7 +193,11 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
     const undo = find('undo');
     if (typeof handle.canUndo === 'function') undo.disabled = !safe(() => handle.canUndo());
   }
-  gameElement.addEventListener('click', () => queueMicrotask(refresh), { signal });
+  // Games change their own state on clicks, drags and keys (Ctrl+Z included); re-read undo after each.
+  const refreshSoon = () => queueMicrotask(refresh);
+  gameElement.addEventListener('click', refreshSoon, { signal });
+  gameElement.addEventListener('pointerup', refreshSoon, { signal });
+  window.addEventListener('keyup', refreshSoon, { signal });
 
   // Shell shortcuts run after the game's own handlers and never steal a key the game used.
   window.addEventListener('keydown', (event) => {
@@ -184,6 +206,7 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
     if (/INPUT|TEXTAREA|SELECT/.test(event.target.tagName) || event.target.isContentEditable) return;
     if (document.querySelector('dialog[open]')) return;
     const key = event.key.toLowerCase();
+    if (claimed.has(key)) return;
     if (event.key === 'Escape' && document.documentElement.dataset.focus === 'on') setFocus(false);
     else if (event.key === '?') command('keys');
     else if (key === 'm') command('sound');
@@ -222,6 +245,12 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
     chrome: true,
   });
   if (destroyed) { try { handle?.destroy?.(); } catch { /* already gone */ } return api; }
+  claimed = claimedKeys(Array.isArray(handle.shortcuts) ? handle.shortcuts : game.shortcuts);
+  // Drop a key from a tooltip when the game uses that key for something else.
+  for (const control of stage.querySelectorAll('.chrome [data-tip]')) {
+    const tip = control.dataset.tip.split(' · ');
+    if (tip.length === 2 && claimed.has(tip[1].toLowerCase())) control.dataset.tip = tip[0];
+  }
   find('undo').hidden = typeof handle.undo !== 'function';
   find('hint').hidden = typeof handle.hint !== 'function';
   if (typeof handle.setFidelity === 'function') {

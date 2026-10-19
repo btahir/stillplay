@@ -206,7 +206,7 @@ export function render(main) {
     }).catch(() => {});
   }, signal);
   whenNear(main.querySelector('[data-proof]'), () => {
-    Promise.all(games.map((game) => fetch(`/scoreboard/${game.id}.json`).then((response) => (response.ok ? response.json() : null)).catch(() => null)))
+    Promise.all(games.map((game) => (game.scoreboard ? fetch(`/scoreboard/${game.id}.json`) : Promise.resolve({ ok: false })).then((response) => (response.ok ? response.json() : null)).catch(() => null)))
       .then((records) => {
         records.forEach((record, index) => {
           const row = main.querySelector(`[data-record="${games[index].id}"]`);

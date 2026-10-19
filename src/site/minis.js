@@ -28,9 +28,16 @@ function card(x, y, w, rank, suit, extra = '') {
     + `<path d="${SUITS[suit]}" class="${red(suit) ? 'mini-red' : 'mini-ink'}" transform="translate(${(w - pip) / 2} ${h * 0.45}) scale(${pip / 10})"/></g>`;
 }
 
+/** A face-down card: a simplified Stillplay back (cream edge, green field, a diamond in the middle). */
 function back(x, y, w, extra = '') {
   const h = Math.round(w * 1.4);
-  return `<g transform="translate(${x} ${y})" ${extra}><rect width="${w}" height="${h}" rx="${Math.max(1.5, w / 12)}" class="mini-back"/><rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="1" class="mini-back-inner"/></g>`;
+  const inset = Math.max(1.4, w * 0.07);
+  const cx = w / 2;
+  const cy = h / 2;
+  const d = w * 0.22;
+  return `<g transform="translate(${x} ${y})" ${extra}><rect width="${w}" height="${h}" rx="${Math.max(1.5, w / 12)}" class="mini-card"/>`
+    + `<rect x="${inset}" y="${inset}" width="${w - inset * 2}" height="${h - inset * 2}" rx=".8" class="mini-back"/>`
+    + `<path d="M${cx} ${cy - d * 1.3}L${cx + d} ${cy}L${cx} ${cy + d * 1.3}L${cx - d} ${cy}Z" class="mini-back-mark"/></g>`;
 }
 
 function slot(x, y, w) {

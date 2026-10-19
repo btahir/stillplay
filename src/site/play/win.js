@@ -9,10 +9,19 @@ import { getStats, recentDailies } from './stats.js';
 
 const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** A link that reproduces the exact game: seed or deal, plus level when there is one. */
+/**
+ * A link that reproduces the exact game. Games list their own URL parameters on the win
+ * summary (`params`, e.g. { deal, suits }); older summaries fall back to deal or seed plus level.
+ */
 export function gameLink(game, summary) {
   if (summary.daily) return new URL(game.dailyPath, location.origin);
   const url = new URL(game.path, location.origin);
+  if (summary.params && typeof summary.params === 'object') {
+    for (const [key, value] of Object.entries(summary.params)) {
+      if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+    }
+    return url;
+  }
   if (summary.deal !== undefined) url.searchParams.set('deal', summary.deal);
   else if (summary.seed !== undefined) url.searchParams.set('seed', summary.seed);
   if (summary.level) url.searchParams.set('level', summary.level);
@@ -22,16 +31,28 @@ export function gameLink(game, summary) {
 function detail(summary) {
   const parts = [];
   if (summary.level) parts.push(capitalise(summary.level));
+  else if (typeof summary.variant === 'string') parts.push(capitalise(summary.variant));
   if (summary.deal !== undefined && !summary.daily) parts.push(`Deal #${summary.deal}`);
   if (Number.isInteger(summary.moves)) parts.push(`${summary.moves} moves`);
   if (summary.game === 'minesweeper' && summary.flags === 0) parts.push('no flags');
   return parts;
 }
 
+/** The headline result, in each game's own words: a field is cleared, a deal solved, a game of Hearts won. */
+function resultLine(summary) {
+  const time = formatTime(summary.elapsedSeconds);
+  if (summary.game === 'minesweeper') return `Cleared in ${time}`;
+  if (summary.game === 'hearts' && Array.isArray(summary.scores) && summary.scores.length > 1) {
+    const [mine, ...others] = summary.scores;
+    return `Won ${mine} to ${Math.min(...others)}${Number.isInteger(summary.hands) ? ` in ${summary.hands} hands` : ''}`;
+  }
+  return `Solved in ${time}`;
+}
+
 export function shareText(game, summary, stats) {
   const heading = summary.daily ? `Daily ${game.title} · ${formatDate(todayUTC(), { day: 'numeric', month: 'short' })}` : game.title;
   const lines = [`Stillplay · ${heading}`];
-  const result = [`Solved in ${formatTime(summary.elapsedSeconds)}`, ...detail(summary)].join(' · ');
+  const result = [resultLine(summary), ...detail(summary)].join(' · ');
   lines.push(result);
   if (summary.daily && stats?.currentStreak > 1) lines.push(`Daily streak: ${stats.currentStreak} days`);
   return lines.join('\n');
@@ -95,7 +116,7 @@ async function shareCard(game, summary, stats) {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }
 
-export function showWin({ game, summary, stats, handle }) {
+export function showWin({ game, summary, stats, handle, onAgain }) {
   const replay = summary.replay || (() => { try { return handle?.exportReplay?.(); } catch { return null; } })();
   const link = gameLink(game, summary).href;
   const text = shareText(game, summary, stats);
@@ -118,6 +139,7 @@ export function showWin({ game, summary, stats, handle }) {
       <div class="share-preview" aria-label="Share text">${escape(text)}<br><span>${escape(link)}</span></div>
       <div class="dialog-actions">
         <button type="button" class="button button-primary" data-share autofocus>${icon('share', { size: 16 })}Share result</button>
+        ${typeof handle?.newGame === 'function' ? `<button type="button" class="button win-again" data-again>${icon('new', { size: 16 })}${summary.daily ? 'Play again' : 'New game'}</button>` : ''}
         <button type="button" class="button" data-copy-replay ${replay ? '' : 'hidden'}>${icon('link', { size: 16 })}Copy replay link</button>
         <button type="button" class="button" data-save-replay ${replay ? '' : 'hidden'}>${icon('download', { size: 16 })}Save replay</button>
         <button type="button" class="button" data-save-card>${icon('image', { size: 16 })}Save image</button>
@@ -132,6 +154,8 @@ export function showWin({ game, summary, stats, handle }) {
       };
       dialog.querySelector('[data-copy-replay]').onclick = () => copy(`${link}#replay=${encodeReplay(replay)}`, 'Replay link copied.', 'Save the replay file to share this game.');
       dialog.querySelector('[data-save-replay]').onclick = () => download(`stillplay-${game.id}-replay.json`, JSON.stringify(replay, null, 2));
+      const again = dialog.querySelector('[data-again]');
+      if (again) again.onclick = () => { dialog.close(); onAgain?.(); };
       dialog.querySelector('[data-save-card]').onclick = async () => {
         try { download(`stillplay-${game.id}.png`, await shareCard(game, summary, stats)); } catch { showToast('The image could not be drawn here.'); }
       };
@@ -161,14 +185,21 @@ export function showStats(game) {
 
 const SHELL_KEYS = [['?', 'This list'], ['M', 'Sound on or off'], ['S', 'Your stats'], ['Z', 'Focus mode'], ['P', 'Original pixels or crisp'], ['Esc', 'Leave focus mode']];
 
-export function showShortcuts(game, handle) {
+/** The shell's own keys, minus any the game has claimed (the game's meaning wins on its page). */
+export function shellKeys(claimed = new Set()) {
+  return SHELL_KEYS.filter(([key]) => !claimed.has(key.toLowerCase()));
+}
+
+export function showShortcuts(game, handle, claimed = new Set()) {
   const own = Array.isArray(handle?.shortcuts) ? handle.shortcuts : game.shortcuts;
+  const shell = shellKeys(claimed);
+  const clicksOnly = SHELL_KEYS.filter(([key]) => claimed.has(key.toLowerCase())).map(([, label]) => label.toLowerCase());
   const isKey = (token) => /^([A-Z0-9?]|F\d{1,2}|Esc|Enter|Space|Tab|Shift|Ctrl.*|⌘.*|Arrow keys)$/.test(token);
   const keyMarkup = (token) => token.split(' + ').map((part) => (isKey(part) ? `<kbd>${escape(part)}</kbd>` : `<span>${escape(part)}</span>`)).join(' + ');
-  const list = (rows) => `<dl class="key-list">${rows.map(([keys, label]) => `<div><dt>${keys.split(' · ').map(keyMarkup).join('<span class="key-or">or</span>')}</dt><dd>${escape(label)}</dd></div>`).join('')}</dl>`;
+  const list = (rows) => `<dl class="key-list">${rows.map(([keys, label]) => `<div><dt>${keys.split(/ · | or /).map(keyMarkup).join('<span class="key-or">or</span>')}</dt><dd>${escape(label)}</dd></div>`).join('')}</dl>`;
   openDialog({
     title: 'Keyboard shortcuts',
     className: 'dialog-keys',
-    html: `${own.length ? `<h3>${escape(game.title)}</h3>${list(own)}` : ''}<h3>Everywhere</h3>${list(SHELL_KEYS)}`,
+    html: `${own.length ? `<h3>${escape(game.title)}</h3>${list(own)}` : ''}<h3>Everywhere</h3>${list(shell)}${clicksOnly.length ? `<p class="dialog-note">In ${escape(game.title)}, ${escape(clicksOnly.join(' and '))} ${clicksOnly.length > 1 ? 'are' : 'is'} on the toolbar only.</p>` : ''}`,
   });
 }

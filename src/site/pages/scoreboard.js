@@ -41,7 +41,8 @@ export function render(main) {
       </div>
     </section>`;
   const grid = main.querySelector('.scoreboard-grid');
-  const ids = siteGames().filter((game) => game.routable).map((game) => game.id);
+  // Only games with a committed record (catalog `scoreboard: true`); the rest would just 404.
+  const ids = siteGames().filter((game) => game.routable && game.scoreboard).map((game) => game.id);
   Promise.all(ids.map((id) => fetch(`/scoreboard/${id}.json`).then((response) => (response.ok ? response.json() : null)).catch(() => null))).then((all) => {
     if (!alive) return;
     const records = all.filter(Boolean);
