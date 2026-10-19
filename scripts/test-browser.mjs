@@ -886,13 +886,16 @@ try {
     const last = replay.actions.pop();
     assert.equal(last.type, 'play');
     await page.goto(`${baseURL}/hearts#replay=${Buffer.from(JSON.stringify(replay)).toString('base64')}`);
-    await expect(page.locator('.hz-message')).toContainText('Replay loaded');
+    await expect(page.locator('#toast')).toContainText('Replay loaded');
     await expect(page.locator(`.hz-legal[data-card="${last.card}"]`)).toBeVisible();
     await page.locator(`.hz-card[data-card="${last.card}"]`).click(corner);
-    await expect(page.locator('.hz-panel')).toContainText('Game over', { timeout: 15000 });
-    await expect(page.locator('.hz-panel strong')).toHaveText(`You win with ${model.state().scores[0]}.`);
-    await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible();
+    // A win gets the page's one result dialog; the in-window game-over panel is for losses only.
+    await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.hz-panel')).toBeHidden();
+    await expect(page.locator('.hz-message')).toContainText(`You win with ${model.state().scores[0]}.`);
     await expect(page.locator('#dialog')).toContainText('Hearts');
+    const others = model.state().scores.slice(1);
+    await expect(page.locator('.share-preview')).toContainText(`Won ${model.state().scores[0]} to ${Math.min(...others)}`);
     await page.locator('#dialog-close').click();
     // The page toolbar's New game deals again through the handle.
     await page.locator('.chrome [data-command="new"]').click();

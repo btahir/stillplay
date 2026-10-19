@@ -8,6 +8,9 @@ const segments={a:'3,1 12,1 14,3 12,5 3,5 1,3',b:'13,4 15,6 15,12 13,14 11,12 11
 function led(number){return String(Math.max(-99,Math.min(999,number))).padStart(3,'0').split('').map(d=>`<svg viewBox="0 0 15 28" aria-hidden="true">${Object.entries(segments).map(([k,p])=>`<polygon points="${p}" fill="${(d==='-'?k==='g':digits[Number(d)].includes(k))?'#ff493b':'#402b24'}"/>`).join('')}</svg>`).join('');}
 function storageGet(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
 function storageSet(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
+/** The keyboard and mouse sheet the site shows for this game (the shell reads it from the handle). */
+const SHORTCUTS = [['Click', 'Reveal a square'], ['Right-click · long press · F', 'Place or remove a flag'], ['Click a number', 'Clear its neighbours'], ['Arrow keys', 'Move between squares'], ['F2', 'New game']];
+
 const flagIcon='<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M4 2v10M2 12h7" fill="none" stroke="currentColor"/><path d="M4 2h7L8 5l3 3H4z" fill="currentColor"/></svg>';
 
 /** The row under the window. In the site shell only flag mode is left; standalone it also carries drawing and sound. */
@@ -85,5 +88,5 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
   container.querySelector('.sound-toggle')?.addEventListener('click',e=>{const on=!storageGet('stillplay-sound',false);storageSet('stillplay-sound',on);e.currentTarget.textContent=`Sound ${on?'on':'off'}`;e.currentTarget.setAttribute('aria-pressed',String(on));if(on)sound('toggle-on');});
   function keyboard(e){if(e.key==='F2'&&!document.querySelector('dialog[open]')){e.preventDefault();sound('new-game');newGame();}if(e.key==='Escape')closeMenu();}
   document.addEventListener('keydown',keyboard);window.addEventListener('resize',paint);const timer=setInterval(updateTime,250);setFidelity(fidelity);
-  return {destroy(){destroyed=true;clearInterval(timer);clearTimeout(pressTimer);document.removeEventListener('keydown',keyboard);window.removeEventListener('resize',paint);},exportReplay:()=>game.replay(),loadReplay(replay){game.loadReplay(replay);elapsed=Math.floor((replay.actions.at(-1)?.t||0)/1000);start=game.state().status==='playing'?performance.now()-elapsed*1000:0;wonShown=true;lostShown=game.state().status==='lost';paint();},newGame,setFidelity,state:()=>game.state()};
+  return {destroy(){destroyed=true;clearInterval(timer);clearTimeout(pressTimer);document.removeEventListener('keydown',keyboard);window.removeEventListener('resize',paint);},exportReplay:()=>game.replay(),loadReplay(replay){game.loadReplay(replay);elapsed=Math.floor((replay.actions.at(-1)?.t||0)/1000);start=game.state().status==='playing'?performance.now()-elapsed*1000:0;wonShown=true;lostShown=game.state().status==='lost';paint();},newGame,setFidelity,state:()=>game.state(),shortcuts:SHORTCUTS};
 }

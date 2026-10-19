@@ -35,6 +35,9 @@ function randomDeal() {
   return values[0] % 1000000 + 1;
 }
 
+/** The keyboard and mouse sheet the site shows for this game (the shell reads it from the handle). */
+const SHORTCUTS = [['Click or drag', 'Move a card'], ['Double-click · Shift + Enter', 'Send a card home'], ['D', 'Turn the stock'], ['Ctrl / ⌘ + Z', 'Undo'], ['H', 'Hint'], ['F', 'Finish when every card is face up'], ['Arrow keys · Enter', 'Pick up and put down'], ['F2', 'New deal'], ['F1', 'How to play']];
+
 function injectStyles() {
   if (document.querySelector('link[data-solitaire-styles]')) return;
   const link = document.createElement('link');
@@ -582,6 +585,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     canUndo: () => engine.state().moves > 0,
     hint,
     state: () => engine.state(),
+    shortcuts: SHORTCUTS,
     setFidelity(value) {
       fidelity = value === 'pixels' ? 'pixels' : 'crisp';
       host.dataset.fidelity = fidelity;

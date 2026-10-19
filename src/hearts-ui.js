@@ -868,7 +868,8 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     const sub = won
       ? `${plural(state.history.length, 'hand')}, and the lowest score at the table.${daily ? ' Today’s game, done.' : ''}`
       : `You finished ${ordinal(place)} with ${state.scores[0]}. Every deal is a fresh start; another game?`;
-    showPanel(`${state.lastHand?.moon !== null && state.lastHand?.moon !== undefined ? MOON : ''}<span class="hz-kicker">Game over · ${plural(state.history.length, 'hand')}</span><strong>${headline}</strong>
+    // In the site shell a win gets the page's result dialog instead; a loss keeps this panel.
+    if (!(chrome && won)) showPanel(`${state.lastHand?.moon !== null && state.lastHand?.moon !== undefined ? MOON : ''}<span class="hz-kicker">Game over · ${plural(state.history.length, 'hand')}</span><strong>${headline}</strong>
       <table class="hz-mini"><thead><tr><th scope="col"><span class="hz-visually-hidden">Player</span></th><th scope="col">Last hand</th><th scope="col">Total</th></tr></thead><tbody>${standingsRows(state, true)}</tbody></table>
       <p>${sub}</p>
       <div class="hz-panel-actions"><button type="button" class="hz-classic-button hz-default-button" data-action="new">New game</button><button type="button" class="hz-text-button" data-action="same">Play this deal again</button><button type="button" class="hz-text-button" data-action="scores">Score sheet</button></div>`,
@@ -878,7 +879,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     if (wonReported) return;
     wonReported = true;
     playSound(won ? 'win' : 'lose');
-    const summary = { game: 'hearts', seed: state.seed, deal: state.seed, daily, elapsedSeconds: finishedSeconds, scores: [...state.scores], hands: state.history.length, difficulty: state.difficulty, replay: engine.replay() };
+    const summary = { game: 'hearts', seed: state.seed, deal: state.seed, daily, elapsedSeconds: finishedSeconds, scores: [...state.scores], hands: state.history.length, difficulty: state.difficulty, replay: engine.replay(), params: { deal: state.seed } };
     notify(won ? onWin : onLose, summary);
   }
   function showPanel(html, kind = '') {
@@ -1164,13 +1165,13 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
       layout = null;
       await render({ animate: false });
       lastEvent = 'Replay loaded.';
-      announce('Replay loaded. Pick up where this game left off.');
+      announce(chrome ? '' : 'Replay loaded. Pick up where this game left off.');
       settle();
     },
     newGame: (deal = null) => newGame(deal, { quiet: true }),
     hint,
     state: () => engine.state(),
-    shortcuts: [['← →', 'Choose a card'], ['Enter', 'Play it, or choose it to pass'], ['Drag up', 'Play a card'], ['H', 'Hint'], ['T', 'Score sheet'], ['F2', 'New game']],
+    shortcuts: [['← →', 'Choose a card'], ['Enter', 'Play it, or choose it to pass'], ['Drag up', 'Play a card'], ['Space · Enter', 'Hurry the other players'], ['H', 'Hint'], ['T', 'Score sheet'], ['F2', 'New game'], ['F1', 'How to play']],
     setFidelity(value) {
       fidelity = value === 'pixels' ? 'pixels' : 'crisp';
       host.dataset.fidelity = fidelity;

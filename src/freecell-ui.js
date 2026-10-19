@@ -11,6 +11,9 @@ const toPile = ref => `${ref.type[0] === 'c' ? 'c' : ref.type[0] === 'f' ? 'f' :
 const red = card => [1, 2].includes(Math.floor(card / 13));
 const buildsOn = (card, below) => card % 13 + 1 === below % 13 && red(card) !== red(below);
 
+/** The keyboard and mouse sheet the site shows for this game (the shell reads it from the handle). */
+const SHORTCUTS = [['Click a card, then a place', 'Move it'], ['Double-click', 'Send a card home, or to a free cell'], ['Ctrl / ⌘ + Z', 'Undo'], ['H', 'Hint'], ['Arrow keys · Enter', 'Pick up and put down'], ['Esc', 'Clear the selection'], ['F2', 'New deal'], ['F1', 'How to play']];
+
 function injectStyles() {
   if (document.querySelector('link[data-freecell-styles]')) return;
   const link = document.createElement('link');
@@ -336,6 +339,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     canUndo: () => getState().moves > 0,
     hint,
     state: () => getState(),
+    shortcuts: SHORTCUTS,
     setFidelity(value) { fidelity = value === 'pixels' ? 'pixels' : 'crisp'; host.dataset.fidelity = fidelity; table.relayout(); },
     table,
   };

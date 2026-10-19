@@ -38,10 +38,21 @@ function detail(summary) {
   return parts;
 }
 
+/** The headline result, in each game's own words: a field is cleared, a deal solved, a game of Hearts won. */
+function resultLine(summary) {
+  const time = formatTime(summary.elapsedSeconds);
+  if (summary.game === 'minesweeper') return `Cleared in ${time}`;
+  if (summary.game === 'hearts' && Array.isArray(summary.scores) && summary.scores.length > 1) {
+    const [mine, ...others] = summary.scores;
+    return `Won ${mine} to ${Math.min(...others)}${Number.isInteger(summary.hands) ? ` in ${summary.hands} hands` : ''}`;
+  }
+  return `Solved in ${time}`;
+}
+
 export function shareText(game, summary, stats) {
   const heading = summary.daily ? `Daily ${game.title} · ${formatDate(todayUTC(), { day: 'numeric', month: 'short' })}` : game.title;
   const lines = [`Stillplay · ${heading}`];
-  const result = [`Solved in ${formatTime(summary.elapsedSeconds)}`, ...detail(summary)].join(' · ');
+  const result = [resultLine(summary), ...detail(summary)].join(' · ');
   lines.push(result);
   if (summary.daily && stats?.currentStreak > 1) lines.push(`Daily streak: ${stats.currentStreak} days`);
   return lines.join('\n');
