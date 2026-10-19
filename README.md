@@ -9,6 +9,8 @@ Nothing to install, no account, no ads. Works offline once you've visited.
 
 **[Play at stillplay.shiptiffin.app](https://stillplay.shiptiffin.app)**
 
+<sub>Hosted on <a href="https://shiptiffin.com/?ref=stillplay">ShipTiffin</a>: all your apps on one server you own.</sub>
+
 <img src="docs/media/stillplay-loop.webp" alt="Stillplay in motion: dragging a Solitaire run, FreeCell deal 11982, a Spider run lifting away, the queen of spades in Hearts, and Minesweeper flags" width="880">
 
 </div>

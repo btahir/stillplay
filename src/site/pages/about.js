@@ -28,7 +28,7 @@ export function render(main) {
     <p>That comparison needs original executables and the matching compiler, and it has not started. Until it has, we make no claim that these games behave exactly like the originals. The <a href="/scoreboard">scoreboard</a> records what is known and leaves the unknowns blank. AI tools help us write code, documentation and tests; they do not count as evidence. Only the comparisons do.</p>
 
     <h2>Open, and small on purpose.</h2>
-    <p>The project is open source under the MIT licence. Fonts keep their own licences. Stillplay is a working name.</p>
+    <p>The project is open source under the MIT licence. Fonts keep their own licences. The source is on <a href="https://github.com/btahir/stillplay">GitHub</a>, and the site is hosted on <a href="https://shiptiffin.com/?ref=stillplay">ShipTiffin</a>.</p>
     <p class="source-note">Not affiliated with or endorsed by Microsoft. Windows XP, Minesweeper, FreeCell and the other product names are used only to identify the games this independent project studies.</p>
   </article>`;
 }

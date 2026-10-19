@@ -122,6 +122,11 @@ main:focus { outline: none; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 14px; }
 .footer-links a { color: var(--ink-2); }
 .footer-links a:hover { color: var(--green); }
+.hosted-by { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; color: var(--ink-2); transition: border-color .15s, color .15s; }
+.hosted-by strong { font-weight: 600; color: var(--ink); transition: color .15s; }
+.hosted-by span { color: var(--muted); padding-left: 10px; margin-left: 2px; border-left: 1px solid var(--line); }
+.hosted-by:hover, .hosted-by:hover strong { border-color: var(--green); color: var(--green); }
+@media (max-width: 520px) { .hosted-by span { display: none; } }
 .site-footer .legal { grid-column: 1 / -1; font-size: 12px; color: var(--faint); margin: 0; }
 
 /* ---- home: hero --------------------------------------------------------- */
