@@ -625,11 +625,13 @@ try {
       const model = await createSpider({ seed: 7, suits: 1 });
       const legal = model.hints().find((hint) => hint.type === 'move');
       const length = model.state().columns[legal.from].length;
+      await touch.locator('.sp-felt').scrollIntoViewIfNeeded();
       const lead = await pileCards(touch, `t${legal.from}`).nth(length - legal.count).boundingBox();
       await touch.touchscreen.tap(lead.x + lead.width / 2, lead.y + 3);
       const target = await pileCards(touch, `t${legal.to}`).last().boundingBox();
       await touch.touchscreen.tap(target.x + target.width / 2, target.y + target.height / 2);
       await expect(touch.locator('.sp-status-moves')).toHaveText('Moves: 1');
+      await pileCards(touch, 's').last().scrollIntoViewIfNeeded();
       const stock = await pileCards(touch, 's').last().boundingBox();
       await touch.touchscreen.tap(stock.x + stock.width / 2, stock.y + stock.height / 2);
       await expect(pileCards(touch, 's')).toHaveCount(40);
@@ -677,7 +679,8 @@ try {
     await expect(page.locator('.sp-menu-mode')).toHaveText('Daily · One suit');
     await page.goto(`${baseURL}/spider?deal=9`);
     await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
-    await page.locator('.sp-quick-actions [data-action="options"]').click();
+    await page.locator('.sp-menu-trigger[data-action="menu-game"]').click();
+    await page.locator('[data-menu="game"] [data-action="options"]').click();
     await page.locator('[data-dialog="options"] input[value="2"]').check();
     await page.locator('[data-dialog="options"] button[type="submit"]').click();
     await expect(page.locator('.sp-menu-mode')).toHaveText('Two suits');

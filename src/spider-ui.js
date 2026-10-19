@@ -689,7 +689,7 @@ export async function mountSpider(container, { daily = false, chrome = false, on
     }
   }
   function keydown(event) {
-    if (destroyed || !host.isConnected || host.querySelector('dialog[open]') || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
+    if (destroyed || !host.isConnected || document.querySelector('dialog[open]') || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;
     if (openMenu && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       event.preventDefault();
       const items = [...host.querySelectorAll(`[data-menu="${openMenu}"] button:not(:disabled)`)];
