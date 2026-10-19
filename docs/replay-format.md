@@ -2,7 +2,7 @@
 
 Stillplay runs the same original-authored C WebAssembly modules in the browser and in Node. A replay records the initial game configuration and input actions. It contains no program code, original executable, or Microsoft assets. This format proves reproducibility in this implementation; it does not establish equivalence with an original Windows game.
 
-Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"`, `"freecell"`, `"spider"` or `"hearts"`. The shared `src/shared.js` loader accepts a JSON string or object, enforces a 1 MiB envelope and at most 100,000 actions, then validates and plays every action through the corresponding WASM core. Unknown versions and malformed actions fail with an error. JSON fields such as a claimed score or winner are never trusted as a result: derive results by replaying.
+Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"`, `"freecell"`, `"solitaire"`, `"spider"` or `"hearts"`. The shared `src/shared.js` loader accepts a JSON string or object, enforces a 1 MiB envelope and at most 100,000 actions, then validates and plays every action through the corresponding WASM core. Unknown versions and malformed actions fail with an error. JSON fields such as a claimed score or winner are never trusted as a result: derive results by replaying.
 
 ## Minesweeper
 
@@ -47,6 +47,43 @@ Actions record valid input attempts, including inputs with no resulting board ch
 `deal` is an integer from 1 through 2,147,483,647. The familiar original range is 1–32,000. Locations use zero-based indices: `column` 0–7, `freecell` 0–3, or `foundation` 0–3. The CLI also accepts `c0`–`c7`, `f0`–`f3`, and `h0`–`h3`. Foundation indices follow clubs, diamonds, hearts, spades. `count` is the number of cards moved; omitting it means one. Multi-card moves must be descending and alternate color, and must fit the available temporary spaces.
 
 Only successful moves, undos, and automatic foundation actions are logged. A replay with an illegal action is rejected, including an undo with no history. Hints do not modify the state and are not logged. Cards in state JSON are suit-major integers: clubs 0–12, diamonds 13–25, hearts 26–38, and spades 39–51, with ace through king in each suit. Foundation state values are top ranks/counts 0–13, not card IDs. The deal algorithm is independently implemented; verification against owner-supplied originals remains pending.
+
+## Solitaire (Klondike)
+
+```json
+{
+  "version": 1,
+  "game": "solitaire",
+  "seed": 7,
+  "draw": 3,
+  "scoring": "vegas",
+  "autoFlip": true,
+  "actions": [
+    { "type": "draw" },
+    { "type": "move", "from": { "type": "waste", "index": 0 }, "to": { "type": "tableau", "index": 2 }, "count": 1 },
+    { "type": "move", "from": { "type": "tableau", "index": 6 }, "to": { "type": "foundation", "index": 0 }, "count": 1 },
+    { "type": "recycle" },
+    { "type": "flip", "column": 3 },
+    { "type": "undo" },
+    { "type": "autoMove" },
+    { "type": "finish" }
+  ]
+}
+```
+
+`seed` is an integer from 1 through 2,147,483,647 and fully determines the deal (see `docs/solitaire-core.md`). `draw` is 1 or 3. `scoring` is `standard`, `vegas` or `none`. `autoFlip` (default `true`) turns a column's new top card face up as part of the move that uncovered it; with `false`, the face-down card waits for an explicit `flip` action. Options never change the deal itself.
+
+Locations are `tableau` 0–6, `waste` 0, and `foundation` 0–3; the CLI also accepts `t0`–`t6`, `w` and `h0`–`h3`. Foundations are four slots: any ace may start an empty slot, then the slot follows that suit. `count` applies to tableau-to-tableau moves of a face-up run; every other move carries one card. Moves out of a foundation go to the tableau only.
+
+Action types:
+
+- `draw` turns one or three cards from the stock to the waste.
+- `recycle` turns the waste back over into the stock when the stock is empty. Vegas allows one pass in draw one and three passes in draw three; standard and unscored games are unlimited.
+- `move`, `flip` and `undo` as described above. `undo` takes back one action, including a draw or a recycle, and restores the score.
+- `autoMove` sends one card that is safe to a foundation (waste first, then columns left to right).
+- `finish` is one step of the automatic finish, which is available once no card is face down and the remaining stock can be reached. Each step plays the lowest card that can go home, otherwise turns the stock.
+
+Only actions that succeeded are logged; a replay with an illegal action is rejected. Hints are not logged. The score is derived by replaying, never trusted from the file. Timed-game penalties and the cumulative Vegas bank depend on wall-clock time and on earlier games, so they live in the interface, not in the replay.
 
 ## Spider Solitaire
 
@@ -102,6 +139,13 @@ pnpm xpc freecell move c0 f0 --state cards.json --json
 pnpm xpc freecell hint --state cards.json --json
 pnpm xpc freecell undo --state cards.json
 pnpm xpc freecell auto --state cards.json
+
+pnpm xpc solitaire new --seed 7 --draw 3 --scoring vegas --state klondike.json --json
+pnpm xpc solitaire draw --state klondike.json
+pnpm xpc solitaire move w t2 --state klondike.json --json
+pnpm xpc solitaire move t3 t5 2 --state klondike.json
+pnpm xpc solitaire hint --state klondike.json --json
+pnpm xpc solitaire finish --state klondike.json
 
 pnpm xpc spider new --suits 2 --seed 7 --state spider.json
 pnpm xpc spider move c4 c7 --state spider.json --json

@@ -1,7 +1,7 @@
 /** Versioned replay interchange shared by the browser and headless CLI. */
 export const REPLAY_VERSION = 1;
 export const MAX_REPLAY_BYTES = 1024 * 1024;
-export const REPLAY_GAMES = ['minesweeper', 'freecell', 'spider', 'hearts'];
+export const REPLAY_GAMES = ['minesweeper', 'freecell', 'solitaire', 'spider', 'hearts'];
 
 export function parseReplay(input) {
   let replay = input;
@@ -22,6 +22,10 @@ export async function loadReplay(input) {
   if (replay.game === 'minesweeper') {
     const { loadReplay: loadMinesweeperReplay } = await import('./minesweeper-core.js');
     return loadMinesweeperReplay(replay);
+  }
+  if (replay.game === 'solitaire') {
+    const { loadSolitaireReplay } = await import('./solitaire-core.js');
+    return loadSolitaireReplay(replay);
   }
   if (replay.game === 'spider') {
     const { loadSpiderReplay } = await import('./spider-core.js');

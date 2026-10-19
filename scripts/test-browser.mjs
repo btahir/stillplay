@@ -6,6 +6,7 @@ import { once } from 'node:events';
 import { chromium, expect } from '@playwright/test';
 import { loadReplay } from '../src/minesweeper-core.js';
 import { loadFreecellReplay } from '../src/freecell-core.js';
+import { createSolitaire } from '../src/solitaire-core.js';
 import { server } from './dev.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -178,6 +179,162 @@ try {
       await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await expect(touch.locator(`[data-cell="${longCell}"]`)).toHaveAttribute('aria-label', /^Flagged/);
     } finally { await phone.close(); }
+  });
+  // Card games share src/card-table.js: drag and drop, taps, keyboard and motion.
+  const pileCards = (target, pile) => target.locator(`[data-pile-id="${pile}"] .ct-card`);
+  async function dragTo(target, from, to, steps = 8) {
+    const a = await from.boundingBox();
+    const b = await to.boundingBox();
+    await target.mouse.move(a.x + a.width / 2, a.y + Math.min(14, a.height / 4));
+    await target.mouse.down();
+    for (let i = 1; i <= steps; i++) await target.mouse.move(a.x + a.width / 2 + (b.x - a.x) * i / steps, a.y + 14 + (b.y + 10 - a.y - 14) * i / steps);
+    await target.mouse.up();
+  }
+  await check('FreeCell cards drag to a free cell and back through the shared card table', async () => {
+    await page.goto(`${baseURL}/freecell?deal=1`);
+    await expect(page.locator('.fc-card')).toHaveCount(52);
+    await dragTo(page, page.locator('.fc-card[data-loc="column"][data-index="0"]').last(), page.locator('.fc-empty-slot[data-index="1"]'));
+    await expect(page.locator('.fc-freecells .fc-card[data-loc="freecell"][data-index="1"]')).toHaveCount(1);
+    await expect(page.locator('.fc-statusbar')).toContainText('1 move');
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.fc-freecells .fc-card')).toHaveCount(0);
+  });
+  await check('Solitaire deals and a legal drag scores, flips and snaps illegal drops back', async () => {
+    await page.goto(`${baseURL}/solitaire?deal=7&draw=1`);
+    await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
+    await expect(pileCards(page, 's')).toHaveCount(24);
+    for (let column = 0; column < 7; column++) await expect(pileCards(page, `t${column}`)).toHaveCount(column + 1);
+    await expect(page.locator('.sol-title')).toHaveText('Solitaire — Deal #7');
+    // Deal 7 starts with the ace of clubs on column 7: drag it home, which also turns the card beneath.
+    await dragTo(page, pileCards(page, 't6').last(), page.locator('[data-pile-id="h0"]'));
+    await expect(pileCards(page, 'h0')).toHaveCount(1);
+    await expect(pileCards(page, 'h0').first()).toHaveAttribute('aria-label', /Ace of clubs/);
+    await expect(pileCards(page, 't6').last()).not.toHaveClass(/ct-face-down/);
+    await expect(page.locator('.sol-status-score')).toHaveText('Score: 15');
+    // The queen of diamonds cannot go on the two of spades: it returns to where it was.
+    const queen = pileCards(page, 't0').last();
+    const before = await queen.boundingBox();
+    await dragTo(page, queen, pileCards(page, 't2').last());
+    await expect(pileCards(page, 't0')).toHaveCount(1);
+    assert.deepEqual(await queen.boundingBox(), before, 'An illegal drop snaps back to the same place.');
+    await expect(page.locator('.sol-message')).toContainText('Back where it was');
+    // Tapping the stock turns one card.
+    await pileCards(page, 's').last().click();
+    await expect(pileCards(page, 'w')).toHaveCount(1);
+    await expect(pileCards(page, 's')).toHaveCount(23);
+  });
+  await check('Solitaire plays from the keyboard and undoes through the core', async () => {
+    await page.goto(`${baseURL}/solitaire?deal=7&draw=1`);
+    await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
+    await pileCards(page, 't1').last().focus();
+    await page.keyboard.press('Enter');
+    await expect(pileCards(page, 't1').last()).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.sol-message')).toContainText('Ace of diamonds');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('[data-pile-id="h0"] .sol-slot')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(pileCards(page, 'h0')).toHaveCount(1);
+    await expect(pileCards(page, 't1')).toHaveCount(1);
+    await expect(page.locator('.sol-status-moves')).toHaveText('1 move');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+z');
+    await expect(pileCards(page, 'h0')).toHaveCount(0);
+    await expect(pileCards(page, 't1')).toHaveCount(2);
+    await expect(pileCards(page, 't1').first()).toHaveClass(/ct-face-down/);
+    // Escape puts a picked-up card back.
+    await pileCards(page, 't0').last().focus();
+    await page.keyboard.press('Space');
+    await expect(pileCards(page, 't0').last()).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(pileCards(page, 't0').last()).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('h');
+    await expect(page.locator('.sol-message')).toContainText('Try ');
+  });
+  await check('Solitaire finishes itself and reaches the win with reduced motion', async () => {
+    // Find a deal that greedy hints bring to an all-face-up table, then open it as a replay link.
+    const game = await createSolitaire({ seed: 1 });
+    let replay = null;
+    for (let seed = 1; seed < 400 && !replay; seed++) {
+      game.newGame(seed, { draw: 1, scoring: 'standard', autoFlip: true });
+      for (let step = 0; step < 400; step++) {
+        const state = game.state();
+        if (state.canAutoFinish) { replay = game.replay(); break; }
+        const hint = game.hint();
+        if (!hint || state.pass > 30) break;
+        if (hint.action === 'move') game.move(hint.from, hint.to, hint.count); else game[hint.action]();
+      }
+    }
+    assert.ok(replay, 'A deal that reaches the automatic finish exists.');
+    await page.goto(`${baseURL}/solitaire#replay=${Buffer.from(JSON.stringify(replay)).toString('base64')}`);
+    await expect(page.locator('.sol-message')).toContainText('Replay loaded');
+    await expect(page.locator('.sol-quick-actions .sol-finish')).toBeVisible();
+    await expect(page.locator('.sol-title')).toHaveText(`Solitaire — Deal #${replay.seed}`);
+    await page.locator('.sol-quick-actions .sol-finish').click();
+    await expect(page.locator('.sol-win')).toBeVisible();
+    await expect(page.locator('.sol-win')).toContainText(`You won deal #${replay.seed}`);
+    for (const slot of [0, 1, 2, 3]) await expect(pileCards(page, `h${slot}`)).toHaveCount(13);
+    await expect(page.locator('#dialog[open]')).toBeVisible();
+    await expect(page.locator('#dialog')).toContainText('Solitaire');
+    await page.locator('#dialog-close').click();
+  });
+  await check('Solitaire win cascade plays with motion on and skips on a key press', async () => {
+    const motion = await browser.newContext({ viewport: { width: 1280, height: 1000 }, deviceScaleFactor: 1, reducedMotion: 'no-preference' });
+    try {
+      const live = await motion.newPage();
+      live.on('pageerror', (error) => browserErrors.push(error.message));
+      const game = await createSolitaire({ seed: 1 });
+      let replay = null;
+      for (let seed = 1; seed < 400 && !replay; seed++) {
+        game.newGame(seed);
+        for (let step = 0; step < 400 && !game.state().canAutoFinish; step++) {
+          const hint = game.hint();
+          if (!hint || game.state().pass > 30) break;
+          if (hint.action === 'move') game.move(hint.from, hint.to, hint.count); else game[hint.action]();
+        }
+        if (game.state().canAutoFinish) { while (game.finishStep()); replay = game.replay(); }
+      }
+      // Undo the final card, then play it by double-click so the real UI wins.
+      replay.actions.push({ type: 'undo' });
+      await live.goto(`${baseURL}/solitaire#replay=${Buffer.from(JSON.stringify(replay)).toString('base64')}`);
+      await expect(live.locator('.sol-message')).toContainText('Replay loaded');
+      const last = live.locator('[data-pile-id^="t"] .ct-card, [data-pile-id="w"] .ct-card').last();
+      await last.dblclick();
+      await expect(live.locator('.ct-cascade')).toBeAttached();
+      await live.waitForTimeout(700);
+      await live.screenshot({ path: join(screenshots, 'solitaire-cascade.png') });
+      await live.keyboard.press('Escape');
+      await expect(live.locator('.sol-win')).toBeVisible();
+    } finally { await motion.close(); }
+  });
+  await check('Solitaire fits a 320px phone and plays by touch', async () => {
+    const phone = await browser.newContext({ viewport: { width: 320, height: 740 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    try {
+      const touch = await phone.newPage();
+      touch.on('pageerror', (error) => browserErrors.push(error.message));
+      await touch.goto(`${baseURL}/solitaire?deal=7&draw=1`);
+      await expect(touch.locator('.solitaire-root .ct-card')).toHaveCount(52);
+      const fit = await touch.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: innerWidth, right: document.querySelector('.sol-window').getBoundingClientRect().right }));
+      assert.ok(fit.scroll <= fit.width + 1 && fit.right <= fit.width, `Solitaire overflows a 320px screen: ${JSON.stringify(fit)}`);
+      await pileCards(touch, 's').last().tap();
+      await expect(pileCards(touch, 'w')).toHaveCount(1);
+      // A real touch drag: the ace of clubs to a foundation.
+      const ace = await pileCards(touch, 't6').last().boundingBox();
+      const home = await touch.locator('[data-pile-id="h2"]').boundingBox();
+      const client = await phone.newCDPSession(touch);
+      const point = (x, y) => [{ x, y, id: 1 }];
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(ace.x + ace.width / 2, ace.y + 10) });
+      for (let i = 1; i <= 8; i++) await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: point(ace.x + ace.width / 2 + (home.x + home.width / 2 - ace.x - ace.width / 2) * i / 8, ace.y + 10 + (home.y + 10 - ace.y - 10) * i / 8) });
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await expect(pileCards(touch, 'h2')).toHaveCount(1);
+      await touch.screenshot({ path: join(screenshots, 'solitaire-320.png'), fullPage: true });
+    } finally { await phone.close(); }
+  });
+  await check('Daily Solitaire uses the shared daily deal', async () => {
+    await page.goto(`${baseURL}/daily/solitaire`);
+    await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
+    const deal = await page.evaluate(async () => (await import('/src/shared.js')).dailyDeal());
+    await expect(page.locator('.sol-title')).toHaveText(`Solitaire — Deal #${deal}`);
   });
   await check('Game artwork agrees with our approved screenshot baselines', async () => {
     const goldens = join(root, 'tests/golden');

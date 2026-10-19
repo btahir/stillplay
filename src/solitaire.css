@@ -1,0 +1,204 @@
+/* Solitaire (Klondike). Window chrome matches FreeCell; the table is shared card-table.css. */
+.solitaire-root {
+  --sol-gap: 11px;
+  --sol-pad: 16px;
+  --sol-chrome: 10px; /* window padding + felt borders */
+  --sol-card-w: calc((100cqw - var(--sol-chrome) - 2 * var(--sol-pad) - 6 * var(--sol-gap)) / 7);
+  --sol-card-h: calc(var(--sol-card-w) * 1.4);
+  container-type: inline-size;
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  color: #202522;
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  text-align: left;
+}
+.solitaire-root *, .solitaire-root *::before, .solitaire-root *::after { box-sizing: border-box; }
+.solitaire-root button, .solitaire-root input { font: inherit; }
+.solitaire-root button { cursor: pointer; }
+.solitaire-root button:disabled { cursor: default; opacity: 0.45; }
+.solitaire-root button:focus-visible { outline: 2px solid #e5af43; outline-offset: 2px; }
+
+/* Window chrome */
+.sol-window {
+  position: relative;
+  padding: 3px;
+  background: #c0c0c0;
+  border: 1px solid;
+  border-color: #fafafa #606060 #606060 #fafafa;
+  box-shadow: 1px 1px 0 #353a32, 0 18px 40px -12px #28332540;
+}
+.sol-titlebar {
+  height: 25px;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 2px 4px;
+  background: linear-gradient(90deg, #12366e, #3d6d9f);
+  color: #fff;
+  font-weight: bold;
+  line-height: 1;
+  user-select: none;
+}
+.sol-title-icon { width: 18px; height: 18px; flex: none; }
+.sol-title-icon svg { width: 100%; height: 100%; display: block; }
+.sol-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sol-title-controls { margin-left: auto; display: flex; gap: 2px; pointer-events: none; flex: none; }
+.sol-title-controls i {
+  display: block; width: 16px; height: 15px; position: relative;
+  background: #c0c0c0; border: 1px solid; border-color: #fff #484848 #484848 #fff;
+  color: #171717; font-style: normal; font-size: 16px; line-height: 10px; text-align: center;
+}
+.sol-title-controls i:first-child::after { content: ""; position: absolute; width: 6px; height: 2px; background: #222; left: 3px; bottom: 3px; }
+.sol-title-controls i:nth-child(2)::after { content: ""; position: absolute; width: 8px; height: 7px; border: 1px solid #222; border-top-width: 2px; left: 3px; top: 3px; }
+.sol-menubar { height: 27px; display: flex; align-items: center; gap: 2px; position: relative; z-index: 4000; }
+.sol-menu-wrap { position: relative; }
+.sol-menu-trigger { background: transparent; border: 1px solid transparent; color: #111; padding: 3px 7px; line-height: 16px; }
+.sol-menu-trigger u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.sol-menu-trigger:hover, .sol-menu-active { border-color: #fff #777 #777 #fff; }
+.sol-menu-mode { font-size: 10px; color: #484c43; margin-left: auto; margin-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sol-dropdown {
+  position: absolute; left: 0; top: 24px; width: 200px; padding: 2px;
+  background: #c0c0c0; border: 2px solid; border-color: #fff #555 #555 #fff; box-shadow: 2px 2px 0 #1115;
+}
+.sol-dropdown[hidden] { display: none; }
+.sol-dropdown button {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; border: 0; background: transparent; color: #111; text-align: left; font-size: 12px;
+}
+.sol-dropdown button:hover, .sol-dropdown button:focus { background: #163d80; color: #fff; outline: 0; }
+.sol-dropdown button:disabled:hover { background: transparent; color: #111; }
+.sol-dropdown button span { font-size: 10px; margin-left: 12px; }
+.sol-menu-separator { height: 2px; border-top: 1px solid #888; border-bottom: 1px solid #eee; margin: 3px 1px; }
+
+/* The felt */
+.sol-felt {
+  --ct-radius: 4px;
+  --ct-accent: #f3cf6a;
+  --ct-shadow: 0 1px 1.5px rgb(3 28 16 / 0.42), 0 0 0 0.5px rgb(3 28 16 / 0.18);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: var(--sol-pad);
+  min-height: calc(2 * var(--sol-pad) + var(--sol-card-h) * 4 + var(--sol-gap) * 2);
+  border: 2px solid;
+  border-color: #727272 #f3f3f3 #f3f3f3 #727272;
+  background:
+    radial-gradient(120% 90% at 50% 30%, rgb(255 255 255 / 0.07), rgb(0 0 0 / 0) 60%),
+    radial-gradient(140% 120% at 50% 110%, rgb(0 0 0 / 0.22), rgb(0 0 0 / 0) 55%),
+    #17633e;
+  touch-action: manipulation;
+}
+.sol-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--sol-gap); }
+.sol-top { margin-bottom: calc(var(--sol-gap) * 2 + var(--sol-card-h) * 0.04); }
+.sol-tableau { align-items: start; }
+.sol-pile { aspect-ratio: 5 / 7; min-width: 0; }
+.sol-slot {
+  position: absolute; inset: 0; width: 100%; height: 100%; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: var(--ct-radius);
+  background: rgb(0 0 0 / 0.1);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.18);
+  color: rgb(214 236 219 / 0.42);
+}
+.sol-slot:hover { background: rgb(255 255 255 / 0.05); }
+.sol-ace { font-family: Georgia, serif; font-size: calc(var(--sol-card-w) * 0.34); line-height: 1; }
+.sol-stock-icon { display: grid; place-items: center; width: 46%; aspect-ratio: 1; }
+.sol-stock-icon svg { width: 100%; height: 100%; }
+.sol-stock-done .sol-slot { color: rgb(214 236 219 / 0.22); }
+.sol-tableau .sol-slot { background: rgb(0 0 0 / 0.05); border-style: dashed; border-color: rgb(255 255 255 / 0.12); box-shadow: none; }
+.sol-waste .sol-slot { background: transparent; border-color: rgb(255 255 255 / 0.07); box-shadow: none; }
+.sol-card .ct-face { background: #fffefa; }
+.ct-drop-legal > .sol-slot { border-color: rgb(243 207 106 / 0.35); }
+
+/* Winning */
+.sol-win {
+  position: absolute; z-index: 3500; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(340px, 86%); padding: 28px 24px 22px; text-align: center;
+  background: #f7f5ef; color: #213a2b; border: 1px solid #e5e8d9;
+  box-shadow: 0 24px 60px -20px rgb(3 39 19 / 0.7);
+  animation: sol-rise 0.32s cubic-bezier(.2, .8, .25, 1);
+}
+.sol-win[hidden] { display: none; }
+.sol-win-kicker { display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #6f7c66; margin-bottom: 10px; }
+.sol-win strong { display: block; font-family: Georgia, serif; font-size: 27px; font-weight: normal; line-height: 1.2; letter-spacing: -0.5px; }
+.sol-win p { font-size: 12px; line-height: 1.7; margin: 12px 0 20px; color: #6f7865; }
+.sol-win-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.sol-text-button { border: 0; background: none; padding: 2px 0; color: #2c6249; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+@keyframes sol-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); } }
+
+/* Status bar and the quiet controls below the window */
+.sol-statusbar { height: 24px; display: flex; gap: 3px; padding-top: 3px; color: #333; font-size: 10px; }
+.sol-statusbar span { border: 1px solid; border-color: #8b8b8b #eee #eee #8b8b8b; padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.sol-statusbar span[hidden] { display: none; }
+.sol-status-moves { flex: 1; min-width: 0; }
+.sol-status-score { min-width: 92px; }
+.sol-status-time { min-width: 82px; }
+.sol-below { padding-top: 17px; text-align: center; }
+.sol-quick-actions { display: flex; justify-content: center; align-items: center; gap: 11px; flex-wrap: wrap; color: #b2b7ac; }
+.sol-quick-actions button { padding: 2px 0; border: 0; background: transparent; color: var(--muted, #60655c); font-size: 12px; text-decoration: underline; text-decoration-color: #b9bcae; text-underline-offset: 3px; }
+.sol-quick-actions button:hover:not(:disabled) { color: var(--ink, #213a2b); }
+.sol-quick-actions [hidden] { display: none; }
+.sol-quick-actions .sol-finish { color: var(--green, #2c6249); text-decoration-color: currentColor; }
+.sol-message { color: var(--muted, #7b8176); font-size: 11px; line-height: 1.65; margin: 10px auto 0; min-height: 36px; max-width: 95%; }
+
+/* Dialogs */
+.sol-classic-button {
+  min-height: 29px; min-width: 75px; padding: 5px 17px;
+  background: #c0c0c0; color: #111; border: 2px solid; border-color: #fff #535353 #535353 #fff; border-radius: 0;
+  box-shadow: 0 0 0 1px #858585; font-family: Arial, sans-serif; font-size: 12px;
+}
+.sol-classic-button:active { border-color: #535353 #fff #fff #535353; }
+.sol-default-button { outline: 1px solid #111; outline-offset: 1px; }
+.sol-dialog {
+  width: min(390px, calc(100% - 36px)); max-height: 85vh; padding: 0;
+  background: #c0c0c0; color: #222; border: 2px solid; border-color: #fff #555 #555 #fff;
+  font-family: Arial, sans-serif; font-size: 12px; box-shadow: 5px 7px 20px #0005;
+}
+.sol-dialog::backdrop { background: #09241677; }
+.sol-dialog-form { padding: 20px; line-height: 1.6; }
+.sol-dialog h2 { font-family: Arial, sans-serif; font-size: 16px; letter-spacing: 0; margin: 0 0 11px; font-weight: bold; }
+.sol-dialog p { margin: 0 0 14px; color: #333; }
+.sol-dialog label { display: block; margin-bottom: 5px; }
+.sol-dialog input[type="number"] { width: 100%; padding: 7px 8px; background: #fff; color: #222; border: 2px solid; border-color: #777 #eee #eee #777; border-radius: 0; font-size: 16px; }
+.sol-dialog-error { font-size: 11px; color: #8b1420; min-height: 18px; margin: 6px 0; }
+.sol-dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 18px; }
+.sol-option-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.sol-dialog fieldset { margin: 0; padding: 8px 10px 4px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+.sol-dialog legend { padding: 0 4px; }
+.sol-dialog fieldset label, .sol-check { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.sol-dialog input[type="radio"], .sol-dialog input[type="checkbox"] { margin: 0; accent-color: #163d80; }
+.sol-dialog-note { font-size: 11px; color: #555 !important; margin-top: 10px !important; }
+
+/* Original pixels: the flat greens and square corners people remember. */
+.solitaire-root[data-fidelity="pixels"] .sol-felt { background: #008000; --ct-radius: 0; --ct-shadow: 1px 1px 0 #003a00; }
+.solitaire-root[data-fidelity="pixels"] .sol-titlebar { background: #000080; }
+.solitaire-root[data-fidelity="pixels"] .sol-slot { border-radius: 0; border: 1px solid #004d00; border-right-color: #5aa55a; border-bottom-color: #5aa55a; background: transparent; box-shadow: none; color: rgb(220 255 220 / 0.45); }
+.solitaire-root[data-fidelity="pixels"] .sol-card svg rect:first-child { rx: 0; }
+
+/* Small screens: tighter gaps and bigger corner indices so cards stay readable. */
+@media (max-width: 600px) {
+  .solitaire-root { --sol-gap: 6px; --sol-pad: 10px; }
+}
+@media (max-width: 420px) {
+  .solitaire-root { --sol-gap: 4px; --sol-pad: 6px; }
+  .sol-titlebar { height: 24px; font-size: 11px; }
+  .sol-title-controls i { width: 14px; height: 14px; }
+  .sol-menu-trigger { padding: 3px 6px; }
+  .sol-menu-mode { font-size: 9px; }
+  .sol-card svg > text, .sol-card svg > g > text { font-size: 19px; letter-spacing: -1.5px; }
+  .sol-statusbar { font-size: 9px; }
+  .sol-status-score { min-width: 0; }
+  .sol-status-time { min-width: 0; }
+  .sol-quick-actions { gap: 8px; }
+  .sol-quick-actions button { font-size: 11px; }
+  .sol-message { font-size: 10px; }
+  .sol-below { padding-top: 13px; }
+  .sol-option-groups { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sol-win { animation: none; }
+}
