@@ -7,6 +7,8 @@ import { once } from 'node:events';
 import { chromium, expect } from '@playwright/test';
 import { loadReplay } from '../src/minesweeper-core.js';
 import { loadFreecellReplay } from '../src/freecell-core.js';
+import { createSpider } from '../src/spider-core.js';
+import { playSpider } from '../src/spider-solver.js';
 import { existsSync } from 'node:fs';
 import { server, createStaticServer } from './dev.mjs';
 
@@ -26,6 +28,8 @@ let browser;
 let page;
 /** Run one scenario. A failure is recorded and the remaining scenarios still run. */
 async function check(name, fn) {
+  // ONLY=Spider runs just the scenarios whose name contains that text (handy while iterating).
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
   const started = performance.now();
   try {
     await fn();
@@ -481,6 +485,208 @@ try {
     await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
     const deal = await page.evaluate(async () => (await import('/src/shared.js')).dailyDeal());
     await expect(page.locator('.sol-title')).toHaveText(`Solitaire — Deal #${deal}`);
+  });
+  // Spider: a one-suit deal the simple player wins, replayed up to the moment each scenario needs.
+  const spiderPath = playSpider(await createSpider({ seed: 2, suits: 1 }), { strategy: 'greedy', budget: 20000 }).path;
+  const spiderLink = (actions, target = baseURL) => `${target}/spider#replay=${Buffer.from(JSON.stringify({ version: 1, game: 'spider', seed: 2, suits: 1, actions })).toString('base64')}`;
+  async function spiderAt(count) {
+    const model = await createSpider({ seed: 2, suits: 1 });
+    for (const action of spiderPath.slice(0, count)) if (action.type === 'deal') model.deal(); else model.move(action.from, action.to, action.count);
+    return model;
+  }
+  /** Plays one solver action through the real UI: a drag for a move, a click on the stock for a deal. */
+  async function playSpiderAction(target, model, action) {
+    if (action.type === 'deal') { await pileCards(target, 's').last().click(); return; }
+    const length = model.state().columns[action.from].length;
+    const destination = pileCards(target, `t${action.to}`);
+    await dragTo(target, pileCards(target, `t${action.from}`).nth(length - action.count), (await destination.count()) ? destination.last() : target.locator(`[data-pile-id="t${action.to}"]`));
+  }
+  await check('Spider deals two decks, drags a legal run and snaps an illegal drop back', async () => {
+    await page.goto(`${baseURL}/spider?deal=7&suits=1`);
+    await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
+    await expect(pileCards(page, 's')).toHaveCount(50);
+    await expect(page.locator('.sp-title')).toHaveText('Spider Solitaire — Deal #7');
+    await expect(page.locator('.sp-menu-mode')).toHaveText('One suit');
+    const model = await createSpider({ seed: 7, suits: 1 });
+    const legal = model.hints().find((hint) => hint.type === 'move');
+    const before = model.state().columns.map((column) => column.length);
+    await playSpiderAction(page, model, legal);
+    await expect(pileCards(page, `t${legal.to}`)).toHaveCount(before[legal.to] + legal.count);
+    await expect(pileCards(page, `t${legal.from}`)).toHaveCount(before[legal.from] - legal.count);
+    await expect(page.locator('.sp-status-moves')).toHaveText('Moves: 1');
+    await expect(page.locator('.sp-status-score')).toHaveText('Score: 499');
+    model.move(legal.from, legal.to, legal.count);
+    const columns = model.state().columns;
+    let illegal = null;
+    for (let a = 0; a < 10 && !illegal; a++) for (let b = 0; b < 10 && !illegal; b++) {
+      if (a !== b && columns[a].length && columns[b].length && !model.canMove(a, b, 1)) illegal = { a, b };
+    }
+    await dragTo(page, pileCards(page, `t${illegal.a}`).last(), pileCards(page, `t${illegal.b}`).last());
+    await expect(page.locator('.sp-message')).toContainText('Back where it was');
+    await expect(pileCards(page, `t${illegal.a}`)).toHaveCount(columns[illegal.a].length);
+    await expect(page.locator('.sp-status-moves')).toHaveText('Moves: 1');
+  });
+  await check('Spider deals a row from the stock by click and key, and undoes it', async () => {
+    await page.goto(`${baseURL}/spider?deal=7&suits=1`);
+    await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
+    const before = await Promise.all(Array.from({ length: 10 }, (_, i) => pileCards(page, `t${i}`).count()));
+    await pileCards(page, 's').last().click();
+    await expect(pileCards(page, 's')).toHaveCount(40);
+    for (let i = 0; i < 10; i++) await expect(pileCards(page, `t${i}`)).toHaveCount(before[i] + 1);
+    await expect(page.locator('.sp-status-progress')).toContainText('4 deals left');
+    await expect(pileCards(page, 't0').last()).toHaveAttribute('data-card', /\d+/);
+    await page.keyboard.press('Control+z');
+    await expect(pileCards(page, 's')).toHaveCount(50);
+    await expect(page.locator('.sp-message')).toContainText('One step back');
+    await page.keyboard.press('d');
+    await expect(pileCards(page, 's')).toHaveCount(40);
+    await expect(page.locator('.sp-status-moves')).toHaveText('Moves: 3');
+  });
+  await check('Spider explains politely why a row cannot be dealt onto an empty column', async () => {
+    let index = 1, model = null;
+    for (; index < spiderPath.length; index++) {
+      model = await spiderAt(index);
+      const state = model.state();
+      if (state.stock && state.columns.some((column) => !column.length)) break;
+    }
+    assert.ok(model.state().columns.some((column) => !column.length), 'The test deal reaches an empty column.');
+    await page.goto(spiderLink(spiderPath.slice(0, index)));
+    await expect(page.locator('.sp-message')).toContainText('Replay loaded');
+    const stock = model.state().stock;
+    await expect(pileCards(page, 's')).toHaveCount(stock);
+    await pileCards(page, 's').last().click();
+    await expect(page.locator('.sp-message')).toContainText(/column needs a card/i);
+    await expect(page.locator('.sp-needs-card')).not.toHaveCount(0);
+    await expect(pileCards(page, 's')).toHaveCount(stock);
+  });
+  await check('Spider sends a finished king-to-ace run to the completed area', async () => {
+    let index = 0;
+    for (; index < spiderPath.length; index++) if ((await spiderAt(index + 1)).state().completed.length) break;
+    const model = await spiderAt(index);
+    await page.goto(spiderLink(spiderPath.slice(0, index)));
+    await expect(page.locator('.sp-message')).toContainText('Replay loaded');
+    await expect(pileCards(page, 'r0')).toHaveCount(0);
+    await playSpiderAction(page, model, spiderPath[index]);
+    await expect(pileCards(page, 'r0')).toHaveCount(13);
+    await expect(pileCards(page, 'r0').last()).toHaveAttribute('data-card', '51');
+    await expect(page.locator('.sp-status-progress')).toContainText('1 of 8 runs');
+    await expect(page.locator('.sp-message')).toContainText('run of spades is complete');
+    await expect(page.locator('.sp-status-score')).toHaveText(`Score: ${500 - (index + 1) + 100}`);
+  });
+  await check('Spider hints with M, highlighting a source and a destination', async () => {
+    await page.goto(`${baseURL}/spider?deal=7&suits=1`);
+    await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
+    await page.keyboard.press('m');
+    await expect(page.locator('.sp-message')).toContainText('Try ');
+    assert.ok(await page.locator('.spider-root .ct-hint').count() >= 2, 'A hint marks both ends.');
+    const first = await page.locator('.sp-message').textContent();
+    await page.keyboard.press('m');
+    const model = await createSpider({ seed: 7, suits: 1 });
+    if (model.hints().length > 1) await expect(page.locator('.sp-message')).not.toHaveText(first);
+  });
+  await check('Spider reaches the win with reduced motion and reports it', async () => {
+    const model = await spiderAt(spiderPath.length - 1);
+    await page.goto(spiderLink(spiderPath.slice(0, -1)));
+    await expect(page.locator('.sp-message')).toContainText('Replay loaded');
+    await expect(page.locator('.sp-status-progress')).toContainText('7 of 8 runs');
+    await playSpiderAction(page, model, spiderPath.at(-1));
+    await expect(page.locator('.sp-win')).toBeVisible();
+    await expect(page.locator('.sp-win')).toContainText('You won deal #2');
+    for (let run = 0; run < 8; run++) await expect(pileCards(page, `r${run}`)).toHaveCount(13);
+    await expect(page.locator('#dialog[open]')).toBeVisible();
+    await expect(page.locator('#dialog')).toContainText('Spider Solitaire');
+    await page.locator('#dialog-close').click();
+  });
+  await check('Spider win cascade plays with motion on and skips on a key press', async () => {
+    const motion = await browser.newContext({ viewport: { width: 1280, height: 1000 }, deviceScaleFactor: 1, reducedMotion: 'no-preference' });
+    try {
+      const live = await motion.newPage();
+      live.on('pageerror', (error) => browserErrors.push(error.message));
+      const model = await spiderAt(spiderPath.length - 1);
+      await live.goto(spiderLink(spiderPath.slice(0, -1)));
+      await expect(live.locator('.sp-message')).toContainText('Replay loaded');
+      await playSpiderAction(live, model, spiderPath.at(-1));
+      await expect(live.locator('.ct-cascade')).toBeAttached();
+      await live.waitForTimeout(900);
+      await live.screenshot({ path: join(screenshots, 'spider-cascade.png') });
+      await live.keyboard.press('Escape');
+      await expect(live.locator('.sp-win')).toBeVisible();
+    } finally { await motion.close(); }
+  });
+  await check('Spider fits a 320px phone and plays by touch', async () => {
+    const phone = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    try {
+      const touch = await phone.newPage();
+      touch.on('pageerror', (error) => browserErrors.push(error.message));
+      await touch.goto(`${baseURL}/spider?deal=7&suits=1`);
+      await expect(touch.locator('.spider-root .ct-card')).toHaveCount(104);
+      const fit = await touch.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: innerWidth, right: document.querySelector('.sp-window').getBoundingClientRect().right, stock: document.querySelector('[data-pile-id="s"]').getBoundingClientRect().right, felt: document.querySelector('.sp-felt').getBoundingClientRect().right }));
+      assert.ok(fit.scroll <= fit.width + 1 && fit.right <= fit.width && fit.stock <= fit.felt, `Spider overflows a 320px screen: ${JSON.stringify(fit)}`);
+      const model = await createSpider({ seed: 7, suits: 1 });
+      const legal = model.hints().find((hint) => hint.type === 'move');
+      const length = model.state().columns[legal.from].length;
+      await touch.locator('.sp-felt').scrollIntoViewIfNeeded();
+      const lead = await pileCards(touch, `t${legal.from}`).nth(length - legal.count).boundingBox();
+      await touch.touchscreen.tap(lead.x + lead.width / 2, lead.y + 3);
+      const target = await pileCards(touch, `t${legal.to}`).last().boundingBox();
+      await touch.touchscreen.tap(target.x + target.width / 2, target.y + target.height / 2);
+      await expect(touch.locator('.sp-status-moves')).toHaveText('Moves: 1');
+      await pileCards(touch, 's').last().scrollIntoViewIfNeeded();
+      const stock = await pileCards(touch, 's').last().boundingBox();
+      await touch.touchscreen.tap(stock.x + stock.width / 2, stock.y + stock.height / 2);
+      await expect(pileCards(touch, 's')).toHaveCount(40);
+      await touch.screenshot({ path: join(screenshots, 'spider-320.png'), fullPage: true });
+    } finally { await phone.close(); }
+  });
+  await check('Spider keeps a 30-card column inside the window on desktop and phone', async () => {
+    for (const viewport of [{ width: 1440, height: 1000 }, { width: 375, height: 812 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto(`${baseURL}/spider?deal=7&suits=1`);
+      await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
+      const fit = await page.evaluate(async () => {
+        const { mountSpider } = await import('/src/spider-ui.js');
+        const handle = await mountSpider(document.querySelector('#full-game'), {});
+        const view = { s: [], r0: [], r1: [], r2: [], r3: [], r4: [], r5: [], r6: [], r7: [] };
+        let uid = 0;
+        const card = (faceUp, face) => ({ key: uid++, card: faceUp ? face : null, faceUp });
+        view.t0 = [...Array.from({ length: 4 }, () => card(false)), ...Array.from({ length: 28 }, (_, i) => card(true, 51 - (i % 13)))];
+        for (let column = 1; column < 10; column++) view[`t${column}`] = [card(false), card(false), card(true, 40 + column)];
+        while (uid < 104) view.s.push(card(false));
+        await handle.table.sync(view, { animate: false });
+        const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+        const tops = [...document.querySelectorAll('[data-pile-id="t0"] .ct-card')].map((element) => element.getBoundingClientRect().top);
+        const result = {
+          count: tops.length,
+          bottom: Math.max(...[...document.querySelectorAll('.sp-column .ct-card')].map((element) => element.getBoundingClientRect().bottom)),
+          tableau: rect('.sp-tableau').bottom,
+          felt: rect('.sp-felt').bottom,
+          smallestFaceUpGap: Math.min(...tops.slice(5).map((top, i) => top - tops[i + 4])),
+        };
+        handle.destroy();
+        return result;
+      });
+      assert.equal(fit.count, 32);
+      assert.ok(fit.bottom <= fit.tableau + 0.5 && fit.bottom <= fit.felt, `A long column overflows at ${viewport.width}px: ${JSON.stringify(fit)}`);
+      assert.ok(fit.smallestFaceUpGap >= 5, `Face-up cards stay apart at ${viewport.width}px: ${JSON.stringify(fit)}`);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  });
+  await check('Daily Spider uses the shared daily deal with one suit, and options remember the suits', async () => {
+    await page.goto(`${baseURL}/daily/spider`);
+    await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
+    const deal = await page.evaluate(async () => (await import('/src/shared.js')).dailyDeal());
+    await expect(page.locator('.sp-title')).toHaveText(`Spider Solitaire — Deal #${deal}`);
+    await expect(page.locator('.sp-menu-mode')).toHaveText('Daily · One suit');
+    await page.goto(`${baseURL}/spider?deal=9`);
+    await expect(page.locator('.spider-root .ct-card')).toHaveCount(104);
+    await page.locator('.sp-menu-trigger[data-action="menu-game"]').click();
+    await page.locator('[data-menu="game"] [data-action="options"]').click();
+    await page.locator('[data-dialog="options"] input[value="2"]').check();
+    await page.locator('[data-dialog="options"] button[type="submit"]').click();
+    await expect(page.locator('.sp-menu-mode')).toHaveText('Two suits');
+    await expect(page.locator('.sp-title')).toHaveText('Spider Solitaire — Deal #9');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('stillplay-spider-options'))), { suits: 2 });
+    await page.evaluate(() => localStorage.removeItem('stillplay-spider-options'));
   });
   await check('Game artwork agrees with our approved screenshot baselines', async () => {
     const goldens = join(root, 'tests/golden');
