@@ -4,6 +4,7 @@
  */
 export const copy = {
   minesweeper: {
+    scoreboard: true, // has a scoreboard/minesweeper.json record
     intro: 'A quiet field, ten hidden mines and a little deduction. Your first click is always safe.',
     loading: 'Setting the field…',
     howTo: [
@@ -15,6 +16,7 @@ export const copy = {
     genre: 'Puzzle',
   },
   freecell: {
+    scoreboard: true, // has a scoreboard/freecell.json record
     intro: 'Eight columns, four free cells, every card face up. Nearly every deal can be won.',
     loading: 'Dealing the cards…',
     howTo: [
@@ -70,5 +72,5 @@ export const copy = {
 };
 
 export const fallbackCopy = {
-  intro: '', loading: 'Getting things ready…', howTo: [], shortcuts: [], dailyNoun: 'game', description: '', genre: 'Game',
+  scoreboard: false, intro: '', loading: 'Getting things ready…', howTo: [], shortcuts: [], dailyNoun: 'game', description: '', genre: 'Game',
 };

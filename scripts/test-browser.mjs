@@ -942,6 +942,14 @@ try {
       await page.goto(`${baseURL}${route}`);
       await expect(page.locator(game === 'minesweeper' ? '[data-cell]' : '.fc-card')).toHaveCount(game === 'minesweeper' ? 81 : 52);
       await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; document.activeElement?.blur(); return document.fonts.ready; });
+      // Page fonts use font-display: optional, so the heading above can land on a fractional
+      // pixel from run to run. Snap the window to whole pixels so only its own drawing is compared.
+      await page.evaluate((target) => {
+        const element = document.querySelector(target);
+        element.style.translate = '';
+        const box = element.getBoundingClientRect();
+        element.style.translate = `${Math.round(box.left) - box.left}px ${Math.round(box.top) - box.top}px`;
+      }, selector);
       await page.mouse.move(0, 0);
       const current = await page.locator(selector).screenshot({ animations: 'disabled', caret: 'hide' });
       const path = join(goldens, `${game}.png`);
