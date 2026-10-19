@@ -36,7 +36,7 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
   function closeMenu(){menu.classList.remove('open');menuToggle.setAttribute('aria-expanded','false');}
   function paint(){
     if(destroyed)return;const state=game.state();const available=container.getBoundingClientRect().width||window.innerWidth-53;const maxWidth=Math.min(available-36,window.innerWidth-89,mini?320:900);cellSize=Math.min(state.width===9?30:24,Math.floor(maxWidth/state.width));cellSize=Math.max(8,cellSize);
-    const shape=`${state.width}:${state.height}:${cellSize}:${fidelity}`;const scale=fidelity==='crisp'?window.devicePixelRatio||1:1;
+    const scale=fidelity==='crisp'?window.devicePixelRatio||1:1;const shape=`${state.width}:${state.height}:${cellSize}:${fidelity}:${scale}`;
     if(lastShape!==shape){canvas.width=state.width*cellSize*scale;canvas.height=state.height*cellSize*scale;canvas.style.width=`${state.width*cellSize}px`;canvas.style.height=`${state.height*cellSize}px`;board.style.setProperty('--columns',state.width);board.style.setProperty('--rows',state.height);board.style.setProperty('--board-width',`${state.width*cellSize}px`);board.style.setProperty('--board-height',`${state.height*cellSize}px`);overlay.innerHTML=state.cells.map((_,i)=>`<button data-cell="${i}" aria-label="Covered cell, row ${Math.floor(i/state.width)+1}, column ${i%state.width+1}"></button>`).join('');lastShape=shape;}
     const ctx=canvas.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);ctx.imageSmoothingEnabled=false;const s=cellSize;
     const colours=['','#1736a3','#27772c','#c32d2a','#1a2168','#791f26','#177b79','#161b17','#72746e'];

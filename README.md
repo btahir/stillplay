@@ -7,14 +7,17 @@
 Minesweeper, FreeCell, Solitaire, Spider Solitaire and Hearts, rebuilt for the browser.<br>
 Nothing to install, no account, no ads. Works offline once you've visited.
 
+<img src="docs/media/stillplay-loop.webp" alt="Stillplay in motion: dragging a Solitaire run, FreeCell deal 11982, a Spider run lifting away, the queen of spades in Hearts, and Minesweeper flags" width="880">
+
+</div>
+
+## The games
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/home-dark.webp">
   <img src="docs/media/home-light.webp" alt="The Stillplay home page with Solitaire ready to play in the hero" width="880">
 </picture>
 
-</div>
-
-## The games
 
 | | | |
 | :---: | :---: | :---: |
