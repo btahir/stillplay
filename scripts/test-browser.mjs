@@ -6,7 +6,8 @@ import { once } from 'node:events';
 import { chromium, expect } from '@playwright/test';
 import { loadReplay } from '../src/minesweeper-core.js';
 import { loadFreecellReplay } from '../src/freecell-core.js';
-import { server } from './dev.mjs';
+import { existsSync } from 'node:fs';
+import { server, createStaticServer } from './dev.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const screenshots = join(root, 'notes/screenshots');
@@ -22,16 +23,26 @@ if (!baseURL) {
 const results = { generatedAt: new Date().toISOString(), browser: null, tests: [], measurements: null, screenshots: [] };
 let browser;
 let page;
+/** Run one scenario. A failure is recorded and the remaining scenarios still run. */
 async function check(name, fn) {
   const started = performance.now();
-  await fn();
-  results.tests.push({ name, passed: true, durationMs: Math.round(performance.now() - started) });
-  console.log(`PASS ${name}`);
+  try {
+    await fn();
+    results.tests.push({ name, passed: true, durationMs: Math.round(performance.now() - started) });
+    console.log(`PASS ${name}`);
+  } catch (error) {
+    results.tests.push({ name, passed: false, durationMs: Math.round(performance.now() - started), error: String(error.message || error).split('\n').slice(0, 6).join('\n') });
+    console.log(`FAIL ${name}\n  ${String(error.message || error).split('\n').slice(0, 6).join('\n  ')}`);
+    if (page) await page.screenshot({ path: join(screenshots, `failed-${results.tests.length}.png`), fullPage: true }).catch(() => {});
+  }
 }
 try {
-  browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  // Playwright's own headless shell (PLAYWRIGHT_BROWSERS_PATH); never a system Chrome.
+  browser = await chromium.launch();
   results.browser = browser.version();
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
+  // Sound stays off in every browser test.
+  await context.addInitScript(() => { try { localStorage.setItem('stillplay-sound', 'false'); } catch { /* storage blocked */ } });
   page = await context.newPage();
   const browserErrors = [];
   page.on('pageerror', (error) => browserErrors.push(error.message));
@@ -48,6 +59,8 @@ try {
     }, boardReadyMs);
     results.measurements = { ...measures, note: 'Unthrottled local desktop browser. Board-ready time is observed at the playable-grid assertion; payload includes all initial resources through network idle. Not a measured midrange phone result.' };
     assert.ok(!measures.resources.some((resource) => resource.name === '/cores/freecell.wasm'), 'Home must lazy load the other game WASM.');
+    assert.ok(!measures.resources.some((resource) => resource.name.startsWith('/src/secrets.js')), 'Below-the-fold extras must load on demand.');
+    assert.equal(await page.evaluate(async () => (await navigator.serviceWorker?.getRegistrations?.() || []).length), 0, 'The dev server must never register a service worker.');
   });
   await check('Minesweeper supports flagging, keyboard reset, difficulty and drawing controls', async () => {
     const first = page.locator('[data-cell="0"]');
@@ -69,9 +82,13 @@ try {
     await first.click();
     await expect(first).toHaveAttribute('aria-label', /^Flagged/);
     await page.locator('.flag-mode').click();
-    await page.locator('.fidelity-toggle').click();
-    await expect(page.locator('.fidelity-toggle')).toHaveText('Crisp drawing');
-    await page.locator('.fidelity-toggle').click();
+    const drawing = page.locator('[data-command="fidelity"]');
+    await drawing.click();
+    await expect(drawing).toHaveAttribute('aria-pressed', 'true');
+    await expect(drawing).toContainText('Crisp');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('stillplay-fidelity'))), 'crisp');
+    await drawing.click();
+    await expect(drawing).toContainText('Original pixels');
   });
   await check('A scripted Minesweeper win runs through the real UI', async () => {
     await page.goto(`${baseURL}/minesweeper?seed=42`);
@@ -82,6 +99,7 @@ try {
       model.reveal(0, 0);
       return model.state().cells.flatMap((cell, index) => cell.mine ? [] : [index]);
     });
+    await page.evaluate(() => localStorage.removeItem('stillplay-stats-v1'));
     await page.locator('[data-cell="0"]').click();
     for (const index of safe) {
       const cell = page.locator(`[data-cell="${index}"]`);
@@ -89,7 +107,13 @@ try {
     }
     await expect(page.locator('.mine-status')).toHaveText('Field cleared. Nicely done.');
     assert.ok(await page.evaluate(() => Number(JSON.parse(localStorage.getItem('stillplay-best-beginner'))) >= 0));
-    if (await page.locator('#dialog[open]').count()) await page.locator('#dialog-close').click();
+    await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible();
+    await expect(page.locator('#dialog-title')).toHaveText('A little victory');
+    await expect(page.locator('.share-preview')).toContainText('seed=42');
+    const stats = await page.evaluate(() => JSON.parse(localStorage.getItem('stillplay-stats-v1')).minesweeper);
+    assert.equal(stats.won, 1);
+    assert.equal(stats.played, 1);
+    await page.locator('#dialog-close').click();
   });
   await check('Browser replay produces exactly the same states in Node WASM', async () => {
     const evidence = await page.evaluate(async () => {
@@ -114,7 +138,7 @@ try {
     await page.locator('#replay-input').setInputFiles({ name: 'test-replay.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(replay)) });
     await expect(page.locator(`[data-cell="${flagIndex}"]`)).toHaveAttribute('aria-label', /^Flagged/);
     const downloaded = page.waitForEvent('download');
-    await page.getByRole('link', { name: 'Save replay', exact: true }).click();
+    await page.locator('#export-replay').click();
     const file = await downloaded;
     assert.deepEqual(JSON.parse(await readFile(await file.path(), 'utf8')), replay);
     const encoded = Buffer.from(JSON.stringify(replay)).toString('base64');
@@ -143,14 +167,14 @@ try {
     await page.goto(`${baseURL}/daily/minesweeper`);
     await expect(page.locator('[data-cell]')).toHaveCount(81);
     let downloading = page.waitForEvent('download');
-    await page.getByRole('link', { name: 'Save replay', exact: true }).click();
+    await page.locator('#export-replay').click();
     const mines = JSON.parse(await readFile(await (await downloading).path(), 'utf8'));
     const seed = await page.evaluate(async () => (await import('/src/shared.js')).dailySeed());
     assert.equal(mines.seed, seed);
     await page.goto(`${baseURL}/daily/freecell`);
     await expect(page.locator('.fc-card')).toHaveCount(52);
     downloading = page.waitForEvent('download');
-    await page.getByRole('link', { name: 'Save replay', exact: true }).click();
+    await page.locator('#export-replay').click();
     const cards = JSON.parse(await readFile(await (await downloading).path(), 'utf8'));
     const deal = await page.evaluate(async () => (await import('/src/shared.js')).dailyDeal());
     assert.equal(cards.deal, deal);
@@ -178,6 +202,128 @@ try {
       await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await expect(touch.locator(`[data-cell="${longCell}"]`)).toHaveAttribute('aria-label', /^Flagged/);
     } finally { await phone.close(); }
+  });
+  await check('The hero switches games in place and remembers the choice', async () => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`${baseURL}/`);
+    await page.evaluate(() => localStorage.removeItem('stillplay-hero-game'));
+    await page.reload();
+    await expect(page.locator('#hero-panel [data-cell]')).toHaveCount(81);
+    const freecellTab = page.getByRole('tab', { name: 'FreeCell' });
+    await freecellTab.click();
+    await expect(page.locator('#hero-panel .fc-card')).toHaveCount(52);
+    await expect(page.locator('#hero-panel [data-cell]')).toHaveCount(0);
+    await expect(freecellTab).toHaveAttribute('aria-selected', 'true');
+    await page.reload();
+    await expect(page.locator('#hero-panel .fc-card')).toHaveCount(52);
+    await page.getByRole('tab', { name: 'FreeCell' }).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#hero-panel [data-cell]')).toHaveCount(81);
+    await expect(page.getByRole('tab', { name: 'Minesweeper' })).toHaveAttribute('aria-selected', 'true');
+  });
+  await check('Stats open from the chrome and survive broken storage', async () => {
+    await page.goto(`${baseURL}/minesweeper?seed=42`);
+    await page.evaluate(() => localStorage.setItem('stillplay-stats-v1', '{not json'));
+    await page.reload();
+    await expect(page.locator('[data-cell]')).toHaveCount(81);
+    await page.locator('body').press('s');
+    await expect(page.locator('#dialog.dialog-stats[open]')).toBeVisible();
+    await expect(page.locator('.stat-row dd').first()).toHaveText('0');
+    await page.keyboard.press('Escape');
+    await page.locator('[data-cell="40"]').click();
+    await page.locator('[data-command="stats"]').click();
+    await expect(page.locator('.stat-row dd').first()).toHaveText('1');
+    await page.locator('#dialog-close').click();
+    await page.evaluate(() => localStorage.removeItem('stillplay-stats-v1'));
+  });
+  await check('Game chrome toggles sound, shortcuts and focus mode', async () => {
+    await page.goto(`${baseURL}/freecell`);
+    await expect(page.locator('.fc-card')).toHaveCount(52);
+    const sound = page.locator('[data-command="sound"]');
+    await expect(sound).toHaveAttribute('aria-pressed', 'false');
+    await sound.click();
+    await expect(sound).toHaveAttribute('aria-pressed', 'true');
+    assert.equal(await page.evaluate(() => localStorage.getItem('stillplay-sound')), 'true');
+    await sound.click();
+    await expect(sound).toHaveAttribute('aria-pressed', 'false');
+    assert.equal(await page.evaluate(() => localStorage.getItem('stillplay-sound')), 'false');
+    await page.locator('body').press('?');
+    await expect(page.locator('#dialog.dialog-keys[open]')).toBeVisible();
+    await expect(page.locator('.key-list kbd').first()).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#dialog[open]')).toHaveCount(0);
+    await page.locator('[data-command="focus"]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-focus', 'on');
+    await expect(page.locator('.site-header')).toBeHidden();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('html')).not.toHaveAttribute('data-focus', 'on');
+    await expect(page.locator('.site-header')).toBeVisible();
+    await page.locator('[data-command="new"]').click();
+    await expect(page.locator('.fc-card')).toHaveCount(52);
+  });
+  await check('Routing keeps one document, moves focus and covers every page', async () => {
+    await page.goto(`${baseURL}/`);
+    await expect(page.locator('[data-cell]').first()).toBeAttached();
+    await page.evaluate(() => { window.sameDocument = true; });
+    await page.locator('.site-nav [data-nav="secrets"]').click();
+    await expect(page).toHaveTitle(/Small games\. Good secrets\./);
+    await expect(page.locator('main h1')).toBeFocused();
+    await expect(page.locator('.site-nav [data-nav="secrets"]')).toHaveAttribute('aria-current', 'page');
+    assert.equal(await page.evaluate(() => window.sameDocument), true, 'Navigation must not reload the page.');
+    await page.goBack();
+    await expect(page.locator('[data-cell]').first()).toBeAttached();
+    await page.goto(`${baseURL}/daily`);
+    const playable = await page.evaluate(async () => (await import('/src/games.js')).games.filter((game) => typeof game.mount === 'function').length);
+    await expect(page.locator('.daily-row')).toHaveCount(playable);
+    await page.goto(`${baseURL}/about`);
+    await expect(page.locator('.article')).toContainText('Not affiliated with or endorsed by Microsoft');
+    await page.goto(`${baseURL}/scoreboard`);
+    await expect(page.locator('.score-card').first()).toBeVisible();
+    await page.goto(`${baseURL}/nowhere-at-all`);
+    await expect(page.locator('main h1')).toHaveText('Nothing hiding here.');
+    const soon = await page.evaluate(async () => (await import('/src/games.js')).games.find((game) => !game.mount && game.path)?.path ?? null);
+    if (soon) {
+      await page.goto(`${baseURL}${soon}`);
+      await expect(page.locator('.soon h1')).toBeVisible();
+      await expect(page).toHaveTitle(/coming soon/);
+    }
+  });
+  await check('The built site installs, carries per-page metadata and plays offline', async () => {
+    if (!existsSync(join(root, 'dist/sw.js'))) throw new Error('dist/ is missing: run scripts/build.mjs first.');
+    const distServer = createStaticServer({ dist: true });
+    distServer.listen(0, '127.0.0.1');
+    await once(distServer, 'listening');
+    const distURL = `http://127.0.0.1:${distServer.address().port}`;
+    const offline = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'allow' });
+    await offline.addInitScript(() => { try { localStorage.setItem('stillplay-sound', 'false'); } catch { /* storage blocked */ } });
+    try {
+      const html = await (await fetch(`${distURL}/freecell`)).text();
+      assert.match(html, /<title>Play FreeCell online — Stillplay<\/title>/);
+      assert.match(html, /og:image" content="[^"]+\/og\/freecell\.png"/);
+      assert.match(html, /"@type":"VideoGame"/);
+      assert.match(await (await fetch(`${distURL}/sitemap.xml`)).text(), /\/daily\/freecell<\/loc>/);
+      const manifest = await (await fetch(`${distURL}/manifest.webmanifest`)).json();
+      assert.ok(manifest.icons.some((icon) => icon.purpose === 'maskable'));
+      assert.equal((await fetch(`${distURL}/og/freecell.png`)).headers.get('content-type'), 'image/png');
+      const tab = await offline.newPage();
+      await tab.goto(`${distURL}/?seed=42`);
+      await expect(tab.locator('[data-cell]')).toHaveCount(81);
+      await tab.evaluate(async () => {
+        await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller) await new Promise((done) => navigator.serviceWorker.addEventListener('controllerchange', done, { once: true }));
+      });
+      await offline.setOffline(true);
+      await tab.reload();
+      await expect(tab.locator('[data-cell]')).toHaveCount(81);
+      await tab.locator('.game-card-link[href="/freecell"]').click();
+      await expect(tab.locator('.fc-card')).toHaveCount(52);
+      await tab.goto(`${distURL}/daily/minesweeper`);
+      await expect(tab.locator('[data-cell]')).toHaveCount(81);
+      await expect(tab).toHaveTitle(/Daily Minesweeper/);
+    } finally {
+      await offline.close();
+      await new Promise((done) => distServer.close(done));
+    }
   });
   await check('Game artwork agrees with our approved screenshot baselines', async () => {
     const goldens = join(root, 'tests/golden');
@@ -219,7 +365,7 @@ try {
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.evaluate(() => localStorage.setItem('stillplay-theme', 'light'));
-    for (const [name, route] of Object.entries({ home: '/', freecell: '/freecell', scoreboard: '/scoreboard', secret: '/secrets/first-click' })) {
+    for (const [name, route] of Object.entries({ home: '/', freecell: '/freecell', daily: '/daily', about: '/about', scoreboard: '/scoreboard', secret: '/secrets/first-click' })) {
       await page.goto(`${baseURL}${route}`);
       if (name === 'home') await expect(page.locator('[data-cell]').first()).toBeAttached();
       if (name === 'secret') await expect(page.locator('[data-board-diagram] svg')).toBeAttached();
@@ -237,8 +383,11 @@ try {
     await page.screenshot({ path: join(screenshots, 'phone-small.png'), fullPage: true, animations: 'disabled' });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Small 320px phones must also fit without horizontal overflow.');
   });
-  assert.deepEqual(browserErrors, [], 'No uncaught browser exceptions.');
+  await check('No uncaught browser exceptions', async () => assert.deepEqual(browserErrors, []));
   await context.close();
+  const failed = results.tests.filter((test) => !test.passed);
+  console.log(`${results.tests.length - failed.length}/${results.tests.length} browser scenarios passed.`);
+  if (failed.length) process.exitCode = 1;
 } catch (error) {
   results.error = error.stack || String(error);
   if (page) await page.screenshot({ path: join(screenshots, 'failed.png'), fullPage: true }).catch(() => {});

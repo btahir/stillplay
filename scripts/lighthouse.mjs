@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
@@ -25,9 +26,21 @@ if (routeArgs.length) {
   try { summary.pages = JSON.parse(await readFile(join(output, 'summary.json'), 'utf8')).pages.filter((page) => !routes.includes(page.route)); }
   catch { /* A first single-route audit starts a new summary. */ }
 }
+/** Use Playwright's installed headless shell; never download a browser. */
+async function findChrome() {
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || join(homedir(), 'Library/Caches/ms-playwright');
+  try {
+    const shell = (await readdir(base)).filter((name) => name.startsWith('chromium_headless_shell-')).sort().at(-1);
+    if (shell) {
+      const folder = (await readdir(join(base, shell))).find((name) => name.startsWith('chrome-headless-shell'));
+      if (folder) return join(base, shell, folder, 'chrome-headless-shell');
+    }
+  } catch { /* fall through */ }
+  return '/usr/bin/chromium';
+}
 let chrome;
 try {
-  chrome = await chromeLauncher.launch({ chromePath: process.env.CHROME_PATH || '/usr/bin/chromium', chromeFlags: ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage'], logLevel: 'error', ignoreDefaultFlags: false });
+  chrome = await chromeLauncher.launch({ chromePath: process.env.CHROME_PATH || await findChrome(), chromeFlags: ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage'], logLevel: 'error', ignoreDefaultFlags: false });
   for (const route of routes) {
     const result = await lighthouse(`${baseURL}${route}`, {
       port: chrome.port,
