@@ -29,6 +29,8 @@ pnpm build
 pnpm preview --port 4179
 ```
 
+The site shell lives in `src/site/`: `router.js` derives every route from the registry in `src/games.js`, `pages/` holds one module per page, `play/stage.js` wraps a game in its controls (new game, undo, hint, daily, sound, drawing mode, stats, focus mode, shortcuts), and `play/stats.js` keeps local stats and daily streaks. A registry entry with `mount: null` shows as coming soon; giving it a `mount` makes it playable with no shell changes. `pnpm build` also prerenders each route's first screen, writes per-route metadata, JSON-LD, Open Graph PNGs, `sitemap.xml`, `robots.txt` and an offline service worker (`--no-cores` reuses the committed WASM; `SITE_URL` sets the absolute origin). `pnpm icons` regenerates the install icons.
+
 Game logic lives in `cores/*.c`, is compiled to `cores/*.wasm`, and is loaded by the browser and the Node CLI. See `scripts/build.mjs` for compiler detection and exact flags. The included WASM lets the development server run without a system-wide compiler installation. This modern LLVM browser build does not reproduce an original Windows compiler toolchain.
 
 ## What is verified

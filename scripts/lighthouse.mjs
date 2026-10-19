@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
@@ -19,15 +20,27 @@ if (!baseURL) {
 }
 const routeArgs = process.argv.flatMap((argument, index, all) => argument === '--route' && all[index + 1] ? [all[index + 1]] : []);
 const routes = routeArgs.length ? routeArgs : ['/', '/freecell'];
-if (routes.some((route) => !['/', '/freecell'].includes(route))) throw new Error('Supported Lighthouse routes: / and /freecell.');
+if (routes.some((route) => !route.startsWith('/'))) throw new Error('Lighthouse routes must start with /.');
 const summary = { generatedAt: new Date().toISOString(), note: 'One local Lighthouse run per route. Simulated mobile throttling; not a real midrange phone measurement.', pages: [] };
 if (routeArgs.length) {
   try { summary.pages = JSON.parse(await readFile(join(output, 'summary.json'), 'utf8')).pages.filter((page) => !routes.includes(page.route)); }
   catch { /* A first single-route audit starts a new summary. */ }
 }
+/** Use Playwright's installed headless shell; never download a browser. */
+async function findChrome() {
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || join(homedir(), 'Library/Caches/ms-playwright');
+  try {
+    const shell = (await readdir(base)).filter((name) => name.startsWith('chromium_headless_shell-')).sort().at(-1);
+    if (shell) {
+      const folder = (await readdir(join(base, shell))).find((name) => name.startsWith('chrome-headless-shell'));
+      if (folder) return join(base, shell, folder, 'chrome-headless-shell');
+    }
+  } catch { /* fall through */ }
+  return '/usr/bin/chromium';
+}
 let chrome;
 try {
-  chrome = await chromeLauncher.launch({ chromePath: process.env.CHROME_PATH || '/usr/bin/chromium', chromeFlags: ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage'], logLevel: 'error', ignoreDefaultFlags: false });
+  chrome = await chromeLauncher.launch({ chromePath: process.env.CHROME_PATH || await findChrome(), chromeFlags: ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage'], logLevel: 'error', ignoreDefaultFlags: false });
   for (const route of routes) {
     const result = await lighthouse(`${baseURL}${route}`, {
       port: chrome.port,
@@ -36,7 +49,7 @@ try {
       logLevel: 'error',
     });
     if (!result?.lhr) throw new Error(`Lighthouse did not return a report for ${route}`);
-    const name = route === '/' ? 'home' : route.slice(1);
+    const name = route === '/' ? 'home' : route.slice(1).replaceAll('/', '-');
     await writeFile(join(output, `${name}.json`), result.report[0]);
     await writeFile(join(output, `${name}.html`), result.report[1]);
     const page = {
