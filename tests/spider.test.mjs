@@ -264,3 +264,41 @@ test('solver: a simple strategy wins most one-suit deals and its wins replay to 
   assert.ok(greedyWins / GREEDY > 0.35);
   assert.ok(searchWins / SEARCH > 0.65);
 });
+
+test('xpc spider: new, move, deal, undo, hint, play and replay through saved state', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { Readable } = await import('node:stream');
+  const { runCLI } = await import('../scripts/xpc.mjs');
+  const directory = await mkdtemp(join(tmpdir(), 'stillplay-spider-'));
+  const run = async args => {
+    let stdout = '';
+    await runCLI([...args, '--state', 'spider.json'], { cwd: directory, env: {}, stdin: Readable.from([]), stdout: { write: chunk => { stdout += chunk; } } });
+    return stdout;
+  };
+  try {
+    const first = JSON.parse(await run(['spider', 'new', '--suits', '2', '--seed', '7', '--json']));
+    assert.equal(first.suits, 2);
+    assert.equal(first.seed, 7);
+    const hint = JSON.parse(await run(['spider', 'hint', '--json']));
+    assert.equal(hint.type, 'move');
+    const moved = JSON.parse(await run(['spider', 'move', `c${hint.from}`, `c${hint.to}`, '--json']));
+    assert.equal(moved.moves, 1);
+    assert.equal(moved.columns[hint.to].length, first.columns[hint.to].length + hint.count);
+    await assert.rejects(run(['spider', 'move', 'c0', 'c0']), /not legal/);
+    await assert.rejects(run(['spider', 'move', 'c0', 'c12']), /c0 to c9/);
+    await assert.rejects(run(['spider', 'new', '--suits', '3']), /1, 2 or 4/);
+    const dealt = JSON.parse(await run(['spider', 'deal', '--json']));
+    assert.equal(dealt.stock, 40);
+    const undone = JSON.parse(await run(['spider', 'undo', '--json']));
+    assert.deepEqual(undone.columns, moved.columns);
+    assert.match(await run(['spider', 'state']), /^Spider 2 suits · seed 7 · playing · score 497 · 3 moves/);
+    const played = JSON.parse(await run(['spider', 'play', '--budget', '500', '--json']));
+    assert.ok(played.moves > 3);
+    const replay = JSON.parse(await run(['replay', 'export']));
+    assert.equal(replay.game, 'spider');
+    const loaded = await loadReplay(replay);
+    assert.deepEqual(loaded.state(), played);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

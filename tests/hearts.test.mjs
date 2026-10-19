@@ -288,3 +288,42 @@ test('computer strength over thousands of audited games', async t => {
   mirror.winRate.forEach(rate => assert.ok(rate > 0.18 && rate < 0.32, 'equal players win about equally'));
   assert.ok(mirror.moons.reduce((a, b) => a + b) > 0, 'standard players sometimes shoot the moon');
 });
+
+test('xpc hearts: new, hint, pass, play, next and replay through saved state', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { Readable } = await import('node:stream');
+  const { runCLI } = await import('../scripts/xpc.mjs');
+  const directory = await mkdtemp(join(tmpdir(), 'stillplay-hearts-'));
+  const run = async args => {
+    let stdout = '';
+    await runCLI([...args, '--state', 'hearts.json'], { cwd: directory, env: {}, stdin: Readable.from([]), stdout: { write: chunk => { stdout += chunk; } } });
+    return stdout;
+  };
+  const name = card => `${['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][card % 13]}${'CDHS'[Math.floor(card / 13)]}`;
+  try {
+    const first = JSON.parse(await run(['hearts', 'new', '--seed', '3', '--difficulty', '0', '--json']));
+    assert.equal(first.phase, 'pass');
+    assert.equal(first.difficulty, 0);
+    assert.deepEqual(first.players, ['human', 'casual', 'casual', 'casual']);
+    const passHint = JSON.parse(await run(['hearts', 'hint', '--json']));
+    await assert.rejects(run(['hearts', 'pass', 'ZZ', '2C', '3C']), /Unknown card/);
+    await assert.rejects(run(['hearts', 'play', '2C']), /cannot be played/);
+    let state = JSON.parse(await run(['hearts', 'pass', ...passHint.cards.map(name), '--json']));
+    assert.equal(state.phase, 'play');
+    while (state.phase === 'play') {
+      const hint = JSON.parse(await run(['hearts', 'hint', '--json']));
+      state = JSON.parse(await run(['hearts', 'play', name(hint.card).replace('10', 'T'), '--json']));
+    }
+    assert.equal(state.phase, 'handOver');
+    assert.match(await run(['hearts', 'state']), /Hand over/);
+    state = JSON.parse(await run(['hearts', 'next', '--json']));
+    assert.equal(state.handNumber, 1);
+    assert.equal(state.passDirection, 'right');
+    await assert.rejects(run(['hearts', 'next']), /after a hand is over/);
+    const replay = JSON.parse(await run(['replay', 'export']));
+    assert.equal(replay.game, 'hearts');
+    assert.deepEqual((await loadReplay(replay)).state(), state);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
