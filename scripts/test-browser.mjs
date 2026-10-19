@@ -1,3 +1,4 @@
+import { createHearts } from '../src/hearts-core.js';
 import { createSolitaire } from '../src/solitaire-core.js';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -749,6 +750,187 @@ try {
     await expect(page.locator('.sp-title')).toHaveText('Spider Solitaire — Deal #9');
     assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('stillplay-spider-options'))), { suits: 2 });
     await page.evaluate(() => localStorage.removeItem('stillplay-spider-options'));
+  });
+  // Hearts: the core plays the computer seats; the page replays their cards one at a time.
+  const handCards = (target) => target.locator('[data-pile-id="h0"] .ct-card, [data-pile-id="h1"] .ct-card');
+  const trickCards = (target) => target.locator('[data-pile-id^="p"] .ct-card');
+  // Fanned cards overlap: press the visible corner, as a person would.
+  const corner = { position: { x: 7, y: 9 } };
+  async function heartsReady(target, route) {
+    await target.goto(`${baseURL}${route}`);
+    await expect(target.locator('.hearts-root .ct-card')).toHaveCount(52);
+    await expect(target.locator('.hz-pass')).toBeVisible();
+  }
+  async function passThree(target, picks = [0, 5, 11], tap = false) {
+    const chosen = [];
+    for (const index of picks) {
+      const card = handCards(target).nth(index);
+      chosen.push(Number(await card.getAttribute('data-card')));
+      await (tap ? card.tap(corner) : card.click(corner));
+    }
+    await (tap ? target.locator('.hz-pass-button').tap() : target.locator('.hz-pass-button').click());
+    return chosen;
+  }
+  await check('Hearts passes exactly three cards and highlights the three received', async () => {
+    await heartsReady(page, '/hearts?deal=5');
+    await expect(page.locator('.hz-title')).toHaveText('Hearts — Deal #5');
+    await expect(handCards(page)).toHaveCount(13);
+    await expect(page.locator('.hz-pass-button')).toBeDisabled();
+    await expect(page.locator('.hz-pass-button')).toContainText('Pass left');
+    await handCards(page).nth(0).click(corner);
+    await handCards(page).nth(0).click(corner);
+    await expect(page.locator('.hz-pass-count')).toHaveText('0 of 3 chosen');
+    for (const index of [0, 1, 2]) await handCards(page).nth(index).click(corner);
+    await handCards(page).nth(3).click(corner);
+    await expect(page.locator('.hz-message')).toContainText('Three cards are chosen');
+    await expect(page.locator('.hz-card[aria-pressed="true"]')).toHaveCount(3);
+    await page.keyboard.press('h');
+    await expect(page.locator('.hz-message')).toContainText('Try passing');
+    await expect(page.locator('.hz-hint')).toHaveCount(3);
+    for (const index of [0, 1, 2]) await handCards(page).nth(index).click(corner);
+    const passed = await passThree(page);
+    const model = await createHearts({ seed: 5, difficulty: 1 });
+    assert.ok(model.pass(passed));
+    const expected = model.state();
+    await expect(page.locator('.hz-received')).toHaveCount(3);
+    const received = await page.locator('.hz-received').evaluateAll((cards) => cards.map((card) => Number(card.dataset.card)).sort((a, b) => a - b));
+    assert.deepEqual(received, [...expected.received].sort((a, b) => a - b));
+    await expect(page.locator('.hz-message')).toContainText('passed you');
+    await expect(page.locator('.hz-felt.hz-playing')).toBeAttached({ timeout: 15000 });
+    await expect(handCards(page)).toHaveCount(13);
+    // Every computer card the core played before your turn is on the table.
+    await expect(trickCards(page)).toHaveCount(expected.trick.length);
+    assert.deepEqual(await page.locator('.hz-legal').evaluateAll((cards) => cards.map((card) => Number(card.dataset.card)).sort((a, b) => a - b)), [...expected.legal].sort((a, b) => a - b));
+  });
+  await check('Hearts refuses an illegal card with a reason and plays a legal one by keyboard', async () => {
+    // Continues deal 5: East led the two of clubs.
+    const illegal = page.locator('.hz-illegal').first();
+    const before = await handCards(page).count();
+    await illegal.click(corner);
+    await expect(page.locator('.hz-message')).toContainText('You must follow suit: play a club.');
+    await expect(handCards(page)).toHaveCount(before);
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.hz-message')).toContainText('no undo');
+    const legal = Number(await page.locator('.hz-legal').first().getAttribute('data-card'));
+    await page.locator(`.hz-card[data-card="${legal}"]`).focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator(`.hz-card[data-card="${legal}"]`)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-pile-id="p0"] .ct-card')).toHaveAttribute('data-card', String(legal));
+    await expect(handCards(page)).toHaveCount(before - 1);
+    await expect(page.locator('.hz-message')).toContainText(/takes the trick/, { timeout: 15000 });
+    await expect(page.locator('.hz-felt.hz-playing')).toBeAttached({ timeout: 15000 });
+  });
+  await check('Hearts computer turns animate one card at a time and the trick sweeps to its winner', async () => {
+    const motion = await browser.newContext({ viewport: { width: 1280, height: 1000 }, deviceScaleFactor: 1, reducedMotion: 'no-preference' });
+    try {
+      const live = await motion.newPage();
+      live.on('pageerror', (error) => browserErrors.push(error.message));
+      await heartsReady(live, '/hearts?deal=5');
+      await passThree(live);
+      await expect(live.locator('.hz-felt.hz-playing')).toBeAttached({ timeout: 15000 });
+      const legal = live.locator('.hz-legal').first();
+      // Drag the card up onto the table.
+      const box = await legal.boundingBox();
+      await live.mouse.move(box.x + 8, box.y + 12);
+      await live.mouse.down();
+      for (let i = 1; i <= 8; i++) await live.mouse.move(box.x + 8, box.y + 12 - i * 22);
+      await live.mouse.up();
+      await expect(live.locator('[data-pile-id="p0"] .ct-card')).toHaveCount(1);
+      const mine = await live.locator('[data-pile-id="p0"] .ct-card').getAttribute('data-card');
+      // West plays first, then North, each on its own beat with a card in flight.
+      await expect(live.locator('[data-pile-id="p1"] .ct-card')).toHaveCount(1, { timeout: 5000 });
+      assert.equal(await live.locator('[data-pile-id="p2"] .ct-card').count(), 0, 'North waits for West.');
+      await expect(live.locator('[data-pile-id="p2"] .ct-card')).toHaveCount(1, { timeout: 5000 });
+      await expect(live.locator('.hz-winner')).toHaveCount(1);
+      await live.waitForTimeout(250);
+      await live.screenshot({ path: join(screenshots, 'hearts-trick.png') });
+      // The finished trick leaves the table (the winner may already have led the next one).
+      await expect(live.locator('.hz-winner')).toHaveCount(0, { timeout: 5000 });
+      await expect(live.locator(`[data-pile-id^="p"] .ct-card[data-card="${mine}"]`)).toHaveCount(0);
+      await expect(live.locator('.hz-message')).toContainText(/take/);
+    } finally { await motion.close(); }
+  });
+  await check('Hearts plays a full hand to the summary and the score sheet', async () => {
+    await heartsReady(page, '/hearts?deal=12');
+    await passThree(page, [10, 11, 12]);
+    for (let trick = 0; trick < 13; trick++) {
+      await expect(page.locator('.hz-felt.hz-playing, .hz-panel:not([hidden])').first()).toBeAttached({ timeout: 15000 });
+      if (await page.locator('.hz-panel:not([hidden])').count()) break;
+      await page.locator('.hz-legal').first().click(corner);
+    }
+    await expect(page.locator('.hz-panel')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.hz-panel [data-action="next-hand"]')).toBeFocused();
+    await expect(handCards(page)).toHaveCount(0);
+    await page.locator('.hz-panel [data-action="scores"]').click();
+    const rows = page.locator('.hz-sheet-table tbody tr');
+    await expect(rows).toHaveCount(1);
+    const hand = await rows.first().locator('.hz-sheet-hand').evaluateAll((cells) => cells.map((cell) => Number(cell.textContent.replace('+', ''))));
+    assert.ok([26, 78].includes(hand.reduce((sum, value) => sum + value, 0)), `A hand gives out 26 points (or 78 after a moon): ${hand}`);
+    await page.locator('[data-dialog="scores"] [data-action="cancel-dialog"]').click();
+    await page.locator('.hz-panel [data-action="next-hand"]').click();
+    await expect(page.locator('.hz-status-hand')).toHaveText('Hand 2 · Pass right');
+    await expect(page.locator('.hz-pass-button')).toContainText('Pass right');
+    await expect(handCards(page)).toHaveCount(13);
+  });
+  await check('Hearts reaches game over from a replay and reports the win', async () => {
+    const model = await createHearts({ seed: 39, difficulty: 1 });
+    for (let state = model.state(); state.phase !== 'gameOver'; state = model.state()) {
+      if (state.phase === 'pass') model.pass(model.hint().cards);
+      else if (state.phase === 'play') model.play(model.hint().card);
+      else model.nextHand();
+    }
+    assert.deepEqual(model.state().winners, [0]);
+    const replay = model.replay();
+    const last = replay.actions.pop();
+    assert.equal(last.type, 'play');
+    await page.goto(`${baseURL}/hearts#replay=${Buffer.from(JSON.stringify(replay)).toString('base64')}`);
+    await expect(page.locator('.hz-message')).toContainText('Replay loaded');
+    await expect(page.locator(`.hz-legal[data-card="${last.card}"]`)).toBeVisible();
+    await page.locator(`.hz-card[data-card="${last.card}"]`).click(corner);
+    await expect(page.locator('.hz-panel')).toContainText('Game over', { timeout: 15000 });
+    await expect(page.locator('.hz-panel strong')).toHaveText(`You win with ${model.state().scores[0]}.`);
+    await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible();
+    await expect(page.locator('#dialog')).toContainText('Hearts');
+    await page.locator('#dialog-close').click();
+    // The page toolbar's New game deals again through the handle.
+    await page.locator('.chrome [data-command="new"]').click();
+    await expect(page.locator('.hz-panel')).toBeHidden();
+    await expect(page.locator('.hz-pass')).toBeVisible();
+    await expect(page.locator('.hz-quick-actions')).toHaveCount(0);
+  });
+  await check('Hearts fits a 320px phone and plays by touch', async () => {
+    const phone = await browser.newContext({ viewport: { width: 320, height: 740 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    try {
+      const touch = await phone.newPage();
+      touch.on('pageerror', (error) => browserErrors.push(error.message));
+      await heartsReady(touch, '/hearts?deal=5');
+      const fit = await touch.evaluate(() => {
+        const felt = document.querySelector('.hz-felt').getBoundingClientRect();
+        const cards = [...document.querySelectorAll('.hearts-root .ct-card')].map((card) => card.getBoundingClientRect());
+        const hand = [...document.querySelectorAll('[data-pile-id="h0"] .ct-card')].map((card) => card.getBoundingClientRect().left);
+        return {
+          scroll: document.documentElement.scrollWidth, width: innerWidth, right: document.querySelector('.hz-window').getBoundingClientRect().right,
+          outside: cards.filter((card) => card.left < felt.left - 1 || card.right > felt.right + 1 || card.bottom > felt.bottom + 1).length,
+          step: Math.min(...hand.slice(1).map((left, i) => left - hand[i])),
+        };
+      });
+      assert.ok(fit.scroll <= fit.width + 1 && fit.right <= fit.width, `Hearts overflows a 320px screen: ${JSON.stringify(fit)}`);
+      assert.equal(fit.outside, 0, 'Every card sits inside the table.');
+      assert.ok(fit.step >= 24, `Hand cards stay tappable: ${fit.step}px apart.`);
+      await passThree(touch, [0, 5, 11], true);
+      await expect(touch.locator('.hz-felt.hz-playing')).toBeAttached({ timeout: 15000 });
+      await touch.locator('.hz-legal').first().tap(corner);
+      await expect(touch.locator('[data-pile-id="p0"] .ct-card')).toHaveCount(1);
+      await touch.screenshot({ path: join(screenshots, 'hearts-320.png'), fullPage: true });
+    } finally { await phone.close(); }
+  });
+  await check('Daily Hearts uses the shared daily deal', async () => {
+    await heartsReady(page, '/daily/hearts');
+    const deal = await page.evaluate(async () => (await import('/src/shared.js')).dailyDeal());
+    await expect(page.locator('.hz-title')).toHaveText(`Hearts — Deal #${deal}`);
+    await expect(page.locator('.hz-menu-mode')).toContainText('Daily');
   });
   await check('Game artwork agrees with our approved screenshot baselines', async () => {
     const goldens = join(root, 'tests/golden');
