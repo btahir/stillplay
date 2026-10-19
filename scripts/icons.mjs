@@ -1,6 +1,6 @@
 /**
  * Generate the installable app icons from the Stillplay brand mark (the same SVG as favicon.svg).
- *   scripts/heavy.sh node scripts/icons.mjs
+ *   node scripts/icons.mjs
  * Writes public/icons/{icon-192,icon-512,icon-maskable-512,apple-touch-icon}.png.
  */
 import { dirname, join, resolve } from 'node:path';

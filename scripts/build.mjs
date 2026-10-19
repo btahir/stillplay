@@ -3,8 +3,8 @@
  * driven by the game registry: one HTML file per route with its own metadata and JSON-LD,
  * Open Graph PNGs, sitemap.xml, robots.txt, the web manifest and the offline service worker.
  *
- *   scripts/heavy.sh node scripts/build.mjs             full build
- *   scripts/heavy.sh node scripts/build.mjs --no-cores  reuse the committed cores/*.wasm
+ *   node scripts/build.mjs             full build
+ *   node scripts/build.mjs --no-cores  reuse the committed cores/*.wasm
  *
  * SITE_URL sets the absolute origin used in canonical links, Open Graph tags and the sitemap.
  */

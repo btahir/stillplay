@@ -97,6 +97,12 @@ State is saved in `.stillplay-state.json` by default; pass `--state FILE` to kee
 
 ## Tests
 
+Browser tests, Lighthouse and the build's preview images use Playwright's headless Chromium. Install it once:
+
+```sh
+pnpm exec playwright install --only-shell chromium
+```
+
 ```sh
 pnpm test            # 66 unit and property tests
 pnpm test:browser    # 41 browser scenarios in headless Chromium

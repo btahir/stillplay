@@ -1,7 +1,6 @@
 /**
  * Render HTML or SVG snippets to PNG files with Playwright's headless Chromium.
- * Heavy: run the calling script through scripts/heavy.sh. Returns false when Playwright
- * or its browser is not installed, so callers can fall back gracefully.
+ * Returns false when Playwright or its browser is not installed, so callers can fall back gracefully.
  */
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
