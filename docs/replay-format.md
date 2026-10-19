@@ -2,7 +2,7 @@
 
 Stillplay runs the same original-authored C WebAssembly modules in the browser and in Node. A replay records the initial game configuration and input actions. It contains no program code, original executable, or Microsoft assets. This format proves reproducibility in this implementation; it does not establish equivalence with an original Windows game.
 
-Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"` or `"freecell"`. The shared `src/shared.js` loader accepts a JSON string or object, enforces a 1 MiB envelope and at most 100,000 actions, then validates and plays every action through the corresponding WASM core. Unknown versions and malformed actions fail with an error. JSON fields such as a claimed score or winner are never trusted as a result: derive results by replaying.
+Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"`, `"freecell"`, `"spider"` or `"hearts"`. The shared `src/shared.js` loader accepts a JSON string or object, enforces a 1 MiB envelope and at most 100,000 actions, then validates and plays every action through the corresponding WASM core. Unknown versions and malformed actions fail with an error. JSON fields such as a claimed score or winner are never trusted as a result: derive results by replaying.
 
 ## Minesweeper
 
@@ -48,6 +48,43 @@ Actions record valid input attempts, including inputs with no resulting board ch
 
 Only successful moves, undos, and automatic foundation actions are logged. A replay with an illegal action is rejected, including an undo with no history. Hints do not modify the state and are not logged. Cards in state JSON are suit-major integers: clubs 0–12, diamonds 13–25, hearts 26–38, and spades 39–51, with ace through king in each suit. Foundation state values are top ranks/counts 0–13, not card IDs. The deal algorithm is independently implemented; verification against owner-supplied originals remains pending.
 
+## Spider Solitaire
+
+```json
+{
+  "version": 1,
+  "game": "spider",
+  "seed": 7,
+  "suits": 2,
+  "actions": [
+    { "type": "move", "from": 4, "to": 7, "count": 1 },
+    { "type": "deal" },
+    { "type": "undo" }
+  ]
+}
+```
+
+`seed` is an unsigned 32-bit integer and `suits` is 1, 2 or 4. Columns are zero-based, 0–9. `count` is the number of cards picked up from the top of `from`; it must be a face-up, same-suit, descending run, and its bottom card must be one rank below the top of `to` (any suit), or `to` must be empty. A `deal` puts one stock card on each column and is legal only while every column holds a card. Completed king-to-ace runs leave the table automatically and are not separate actions. Only successful actions are logged, and every action, including `undo`, costs one point. In state JSON, columns hold `{ uid, card, faceUp }`: `uid` 0–103 is the physical card and `card` is the suit-major face id, or `null` while face down. See `docs/spider-core.md`.
+
+## Hearts
+
+```json
+{
+  "version": 1,
+  "game": "hearts",
+  "seed": 3,
+  "difficulty": 1,
+  "players": ["human", "standard", "standard", "standard"],
+  "actions": [
+    { "type": "pass", "cards": [2, 9, 38] },
+    { "type": "play", "card": 12 },
+    { "type": "nextHand" }
+  ]
+}
+```
+
+`seed` is an unsigned 32-bit integer and `difficulty` is 0 (casual) or 1 (standard). `players` lists seats 0–3 as `human`, `random`, `casual` or `standard`; only seat 0 may be human, and the field may be omitted to follow `difficulty`. Cards are suit-major ids. Only the human seat's decisions are logged: `pass` (three different cards from the hand, in a passing hand), `play` (a legal card on your turn) and `nextHand` (after a hand ends, before the game ends). Computer seats replay deterministically from the seed. See `docs/hearts-core.md`.
+
 ## CLI
 
 Run from the project root after building the WASM modules:
@@ -65,9 +102,21 @@ pnpm xpc freecell move c0 f0 --state cards.json --json
 pnpm xpc freecell hint --state cards.json --json
 pnpm xpc freecell undo --state cards.json
 pnpm xpc freecell auto --state cards.json
+
+pnpm xpc spider new --suits 2 --seed 7 --state spider.json
+pnpm xpc spider move c4 c7 --state spider.json --json
+pnpm xpc spider deal --state spider.json
+pnpm xpc spider hint --state spider.json --json
+pnpm xpc spider play --budget 5000 --state spider.json
+
+pnpm xpc hearts new --seed 3 --difficulty 1 --state hearts.json
+pnpm xpc hearts hint --state hearts.json --json
+pnpm xpc hearts pass 3C 10C KH --state hearts.json
+pnpm xpc hearts play JC --state hearts.json --json
+pnpm xpc hearts next --state hearts.json
 ```
 
-Every command accepts `--state FILE`. The default is `.stillplay-state.json` in the current directory, or the `XPC_STATE` environment variable when set. State is saved as replay JSON, through an atomic file replacement, after each input. This is one active game per state file. `minesweeper state` and `freecell state` report it. Commands with `--json` emit one JSON value. Errors go to stderr and return exit code 1. `replay export` without a filename emits replay JSON; `replay load -` reads a replay from stdin. Nothing is uploaded.
+Every command accepts `--state FILE`. The default is `.stillplay-state.json` in the current directory, or the `XPC_STATE` environment variable when set. State is saved as replay JSON, through an atomic file replacement, after each input. This is one active game per state file. `minesweeper state`, `freecell state`, `spider state` and `hearts state` report it. `spider hint` prints the best-ranked suggestion; `spider play` lets the simple built-in player continue the saved game. Hearts cards are written like `QS`, `10H` (or `TH`), `2C`. Commands with `--json` emit one JSON value. Errors go to stderr and return exit code 1. `replay export` without a filename emits replay JSON; `replay load -` reads a replay from stdin. Nothing is uploaded.
 
 State JSON exposes the complete Minesweeper board, including unrevealed mines, for debugging and agent development. This CLI is not a hidden-information tournament interface. Public agent submission and anti-cheat policy are future work.
 
