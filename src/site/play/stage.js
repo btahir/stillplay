@@ -175,7 +175,11 @@ export async function mountStage(container, game, { daily = false, variant = 'pa
     const undo = find('undo');
     if (typeof handle.canUndo === 'function') undo.disabled = !safe(() => handle.canUndo());
   }
-  gameElement.addEventListener('click', () => queueMicrotask(refresh), { signal });
+  // Games change their own state on clicks, drags and keys (Ctrl+Z included); re-read undo after each.
+  const refreshSoon = () => queueMicrotask(refresh);
+  gameElement.addEventListener('click', refreshSoon, { signal });
+  gameElement.addEventListener('pointerup', refreshSoon, { signal });
+  window.addEventListener('keyup', refreshSoon, { signal });
 
   // Shell shortcuts run after the game's own handlers and never steal a key the game used.
   window.addEventListener('keydown', (event) => {

@@ -176,10 +176,11 @@ main:focus { outline: none; }
 .stage[data-game='freecell'] .stage-game > .loading-game { min-height: 575px; }
 @media (max-width: 640px) { .stage[data-game='freecell'] .stage-game > .loading-game { min-height: 478px; } }
 
-/* The shell owns sound and drawing controls; hide duplicates inside game toolbars. */
-.stage .game-toolbar .sound-toggle, .stage .game-toolbar .fidelity-toggle, .stage .game-toolbar .separator, .stage .fc-sound-toggle, .stage .fc-fidelity-toggle { display: none; }
-.stage .game-toolbar { margin-top: 16px; font-size: 13px; }
-.stage .game-toolbar button { font-size: 13px; }
+/* Controls the toolbar does not cover (Minesweeper's flag mode) sit quietly under the window. */
+.stage .game-toolbar { margin-top: 16px; gap: 8px; font-size: 13px; }
+.stage .game-toolbar .flag-mode { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); color: var(--ink-2); font-size: 13px; font-weight: 500; transition: background .15s, color .15s, border-color .15s; }
+.stage .game-toolbar .flag-mode:hover { border-color: var(--line-strong); color: var(--ink); }
+.stage .game-toolbar .flag-mode[aria-pressed='true'] { color: var(--green); border-color: currentColor; background: var(--green-wash); }
 
 /* Custom tooltips for precise pointers only */
 @media (hover: hover) and (pointer: fine) {
@@ -435,14 +436,14 @@ dialog::backdrop { background: #141c1599; animation: fade-in .2s ease-out; }
 
 /* ---- miniatures --------------------------------------------------------------- */
 
-.mini { --mini-felt: #2f6a4f; --mini-card: #fffef9; --mini-edge: #b9bfae; --mini-ink: #262c27; --mini-red: #b0413a; --mini-back: #345f8c; --mini-tile: #c5c6c1; --mini-light: #f5f5eb; --mini-dark: #7c8077; --mini-open: #bebfba; }
-[data-theme='dark'] .mini { --mini-felt: #24533e; --mini-card: #ecebe2; --mini-edge: #96a08e; --mini-back: #2c4f75; --mini-tile: #a9aba4; --mini-light: #d7d8cf; --mini-dark: #5e625a; --mini-open: #9fa19a; }
+.mini { --mini-felt: #2f6a4f; --mini-card: #fffef9; --mini-edge: #b9bfae; --mini-ink: #262c27; --mini-red: #b0413a; --mini-back: #2c6249; --mini-tile: #c5c6c1; --mini-light: #f5f5eb; --mini-dark: #7c8077; --mini-open: #bebfba; }
+[data-theme='dark'] .mini { --mini-felt: #24533e; --mini-card: #ecebe2; --mini-edge: #96a08e; --mini-back: #2c6249; --mini-tile: #a9aba4; --mini-light: #d7d8cf; --mini-dark: #5e625a; --mini-open: #9fa19a; }
 .mini-felt { fill: var(--mini-felt); }
 .mini-card { fill: var(--mini-card); stroke: var(--mini-edge); stroke-width: .6; }
 .mini-ink { fill: var(--mini-ink); }
 .mini-red { fill: var(--mini-red); }
-.mini-back { fill: var(--mini-back); stroke: #fff8; stroke-width: .6; }
-.mini-back-inner { fill: none; stroke: #ffffff55; stroke-width: .6; }
+.mini-back { fill: var(--mini-back); }
+.mini-back-mark { fill: #245541; stroke: #f7f5efaa; stroke-width: .5; }
 .mini-slot { fill: #ffffff10; stroke: #ffffff40; stroke-width: .8; }
 .mini-frame { fill: var(--mini-tile); stroke: var(--mini-dark); }
 .mini-open { fill: var(--mini-open); stroke: #9b9f95; stroke-width: .5; }

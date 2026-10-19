@@ -149,18 +149,39 @@ try {
   await check('FreeCell deals, moves to a free cell, undoes, and selects deal 11982', async () => {
     await page.goto(`${baseURL}/freecell`);
     await expect(page.locator('.fc-card')).toHaveCount(52);
+    // The page toolbar owns Undo and Hint; the game draws no duplicates below its window.
+    const undo = page.locator('.chrome [data-command="undo"]');
+    await expect(undo).toBeVisible();
+    await expect(undo).toBeDisabled();
+    await expect(page.locator('.fc-quick-actions [data-action="undo"], .fc-quick-actions [data-action="hint"]')).toHaveCount(0);
     await page.locator('.fc-card[data-loc="column"][data-index="0"]').last().click();
     await page.locator('.fc-empty-slot[data-loc="freecell"][data-index="0"]').click();
     await expect(page.locator('.fc-freecells .fc-card')).toHaveCount(1);
     await expect(page.locator('.fc-statusbar')).toContainText('1 move');
-    await page.locator('.fc-quick-actions [data-action="undo"]').click();
+    await expect(undo).toBeEnabled();
+    await undo.click();
     await expect(page.locator('.fc-freecells .fc-card')).toHaveCount(0);
+    await expect(page.locator('.fc-statusbar')).toContainText('0 moves');
+    await expect(undo).toBeDisabled();
+    // Ctrl+Z undoes exactly one move, even though both the game and the page listen for keys.
+    for (const column of [0, 1]) {
+      await page.locator(`.fc-card[data-loc="column"][data-index="${column}"]`).last().click();
+      await page.locator(`.fc-empty-slot[data-loc="freecell"][data-index="${column}"]`).click();
+    }
+    await expect(page.locator('.fc-statusbar')).toContainText('2 moves');
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.fc-statusbar')).toContainText('1 move');
+    await expect(undo).toBeEnabled();
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.fc-statusbar')).toContainText('0 moves');
+    await expect(undo).toBeDisabled();
     await page.getByRole('button', { name: 'Choose a deal', exact: true }).click();
     await page.locator('#fc-deal-input').fill('11982');
     await page.locator('[data-dialog="deal"] button[type="submit"]').click();
     await expect(page.locator('.fc-titlebar')).toContainText('Deal #11982');
-    await page.locator('.fc-quick-actions [data-action="hint"]').click();
+    await page.locator('.chrome [data-command="hint"]').click();
     await expect(page.locator('.fc-message')).toContainText('Try moving');
+    await expect(page.locator('.fc-card.ct-hint').first()).toBeVisible();
     await page.goto(`${baseURL}/freecell?deal=11982`);
     await expect(page.locator('.fc-titlebar')).toContainText('Deal #11982');
   });
@@ -395,6 +416,30 @@ try {
     await page.keyboard.press('Escape');
     await expect(pileCards(page, 't0').last()).toHaveAttribute('aria-pressed', 'false');
     await page.keyboard.press('h');
+    await expect(page.locator('.sol-message')).toContainText('Try ');
+  });
+  await check('Solitaire double-click sends a card home and the page toolbar undoes and hints', async () => {
+    await page.goto(`${baseURL}/solitaire?deal=7&draw=1`);
+    await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
+    await expect(page.locator('.sol-quick-actions [data-action="undo"], .sol-quick-actions [data-action="hint"]')).toHaveCount(0);
+    const undo = page.locator('.chrome [data-command="undo"]');
+    await expect(undo).toBeDisabled();
+    const scrollBefore = await page.evaluate(() => scrollY);
+    await pileCards(page, 't1').last().dblclick();
+    await expect(pileCards(page, 'h0')).toHaveCount(1);
+    // The first click of the double-click picked the ace up; the message must describe the move instead.
+    await expect(page.locator('.sol-message')).toHaveText('Ace of diamonds goes home.');
+    assert.equal(await page.evaluate(() => scrollY), scrollBefore, 'Double-clicking a card must not scroll the page.');
+    await expect(undo).toBeEnabled();
+    await pileCards(page, 't6').last().dblclick();
+    await expect(page.locator('.sol-status-moves')).toHaveText('2 moves');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await expect(page.locator('.sol-status-moves')).toHaveText('1 move');
+    await undo.click();
+    await expect(page.locator('.sol-status-moves')).toHaveText('0 moves');
+    await expect(pileCards(page, 'h0')).toHaveCount(0);
+    await expect(undo).toBeDisabled();
+    await page.locator('.chrome [data-command="hint"]').click();
     await expect(page.locator('.sol-message')).toContainText('Try ');
   });
   await check('Solitaire finishes itself and reaches the win with reduced motion', async () => {

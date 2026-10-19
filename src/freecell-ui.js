@@ -21,7 +21,11 @@ function injectStyles() {
 }
 
 /* The window is drawn once; cards live in the shared card table and only move. */
-function frame(daily) {
+function frame(daily, chrome) {
+  // In the site shell, Undo and Hint live in the page toolbar; only FreeCell's own extras stay below the window.
+  const quick = chrome
+    ? '<button type="button" data-action="auto">Auto finish</button><span aria-hidden="true">·</span><button type="button" data-action="deal">Choose a deal</button>'
+    : '<button type="button" data-action="undo">Undo</button><span aria-hidden="true">·</span><button type="button" data-action="hint">Hint</button><span aria-hidden="true">·</span><button type="button" data-action="auto">Auto finish</button><span aria-hidden="true">·</span><button type="button" data-action="deal">Choose a deal</button>';
   const freecells = [0, 1, 2, 3].map(index => `<div class="fc-slot fc-freecell-slot" data-fc-pile="f${index}"><button type="button" class="fc-empty-slot" data-ct-target data-loc="freecell" data-index="${index}" aria-label="Empty free cell ${index + 1}"><span class="fc-slot-outline"></span></button></div>`).join('');
   const foundations = [0, 1, 2, 3].map(index => `<div class="fc-slot fc-foundation-slot" data-fc-pile="h${index}"><button type="button" class="fc-foundation" data-ct-target data-loc="foundation" data-index="${index}" aria-label="${SUITS[index]} foundation, empty"><svg class="fc-foundation-suit" viewBox="0 0 24 24" aria-hidden="true"><path d="${PATHS[index]}" fill="currentColor"/></svg></button></div>`).join('');
   const columns = [0, 1, 2, 3, 4, 5, 6, 7].map(index => `<div class="fc-column" data-fc-pile="c${index}" role="group" aria-label="Column ${index + 1}"><button type="button" class="fc-column-target" data-ct-target data-loc="column" data-index="${index}" aria-label="Empty column ${index + 1}"></button></div>`).join('');
@@ -30,13 +34,13 @@ function frame(daily) {
     + `<div class="fc-menu-wrap"><button type="button" class="fc-menu-trigger" data-action="menu-help" aria-expanded="false" aria-haspopup="menu"><u>H</u>elp</button><div class="fc-dropdown" role="menu" data-menu="help" hidden><button role="menuitem" type="button" data-action="help">How to play <span>F1</span></button><button role="menuitem" type="button" data-action="about">About this version</button></div></div><span class="fc-menu-deal">${daily ? 'Daily deal' : 'Classic rules'}</span></div>`
     + `<div class="fc-felt"><div class="fc-cell-labels"><span>FREE CELLS</span><span>FOUNDATIONS</span></div><div class="fc-top-row"><div class="fc-freecells">${freecells}</div><div class="fc-foundations">${foundations}</div></div><div class="fc-tableau">${columns}</div><div class="fc-win-panel" role="status" hidden></div></div>`
     + `<div class="fc-statusbar"><span class="fc-status-left">0 moves</span><span class="fc-status-deal">Deal #1</span></div></section>`
-    + `<div class="fc-below-game"><div class="fc-quick-actions"><button type="button" data-action="undo">Undo</button><span aria-hidden="true">·</span><button type="button" data-action="hint">Hint</button><span aria-hidden="true">·</span><button type="button" data-action="auto">Auto finish</button><span aria-hidden="true">·</span><button type="button" data-action="deal">Choose a deal</button></div><p class="fc-message" role="status" aria-live="polite"></p></div>`
+    + `<div class="fc-below-game"><div class="fc-quick-actions">${quick}</div><p class="fc-message" role="status" aria-live="polite"></p></div>`
     + `<dialog class="fc-dialog" data-dialog="deal" aria-labelledby="fc-deal-title"><form method="dialog" class="fc-dialog-form"><h2 id="fc-deal-title">Select a deal</h2><p>Enter a deal number from 1 to 32,000.</p><label for="fc-deal-input">Deal number</label><input id="fc-deal-input" name="deal" type="number" min="1" max="32000" step="1" required><p class="fc-dialog-error" data-deal-error aria-live="polite"></p><div class="fc-dialog-actions"><button class="fc-classic-button" type="button" data-action="cancel-dialog">Cancel</button><button class="fc-classic-button fc-default-button" type="submit">Deal</button></div></form></dialog>`
     + `<dialog class="fc-dialog" data-dialog="help" aria-labelledby="fc-help-title"><div class="fc-dialog-form"><h2 id="fc-help-title">How to play FreeCell</h2><p>Build each foundation from ace to king, following suit. Stack columns in descending order, alternating red and black.</p><p>Drag a card or an ordered run, or select it and then its destination. Double-click a card to send it home, or to a free cell. Empty free cells and columns let you move longer runs.</p><p>With the keyboard, Tab or the arrow keys move between piles, Enter picks up and puts down, and Escape puts cards back. <strong>F2</strong> deals a new game. <strong>Ctrl+Z</strong> undoes. <strong>H</strong> suggests a move. Auto finish sends only safe cards to the foundations.</p><div class="fc-dialog-actions"><button type="button" class="fc-classic-button fc-default-button" data-action="cancel-dialog">Got it</button></div></div></dialog>`
     + `<dialog class="fc-dialog" data-dialog="about" aria-labelledby="fc-about-title"><div class="fc-dialog-form"><h2 id="fc-about-title">A familiar game, rebuilt</h2><p>This is our playable implementation of FreeCell with classic numbered deals. Its code and behavior have not yet been verified against the original Windows binary.</p><p>All card artwork is drawn for this project.</p><div class="fc-dialog-actions"><button type="button" class="fc-classic-button fc-default-button" data-action="cancel-dialog">Close</button></div></div></dialog>`;
 }
 
-export async function mountFreecell(container, { daily = false, onWin = () => {}, sound = () => {} } = {}) {
+export async function mountFreecell(container, { daily = false, onWin = () => {}, onStart = () => {}, sound = () => {}, chrome = false } = {}) {
   injectStyles();
   const requestedDeal = Number(new URLSearchParams(location.search).get('deal'));
   let engine = await createFreecell({ deal: daily ? utcDeal() : Number.isInteger(requestedDeal) && requestedDeal >= 1 && requestedDeal <= 2147483647 ? requestedDeal : 1 });
@@ -50,7 +54,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
   const host = document.createElement('div');
   host.className = 'freecell-root';
   host.dataset.fidelity = fidelity;
-  host.innerHTML = frame(daily);
+  host.innerHTML = frame(daily, chrome);
   container.replaceChildren(host);
   const felt = host.querySelector('.fc-felt');
 
@@ -196,6 +200,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     message = daily ? 'The same daily deal for everyone. Take your time.' : 'A fresh deal. Every card is in view.';
     const state = getState();
     renderChrome(state);
+    onStart();
     await table.deal(pileState(state), { from: dealPoint(), order: dealOrder(state), stagger: 14 });
   }
   function showDialog(name) {
@@ -244,7 +249,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
         trigger.classList.add('fc-menu-active');
         const menu = host.querySelector(`[data-menu="${next}"]`);
         menu.hidden = false;
-        menu.querySelector('button:not(:disabled)')?.focus();
+        menu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
       }
       return;
     }
@@ -253,22 +258,34 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     if (name === 'deal' || name === 'help' || name === 'about') { showDialog(name); return; }
     cancelAuto();
     closeMenus();
-    if (name === 'undo') {
-      if (engine.undo()) { table.select(null); wonReported = false; message = 'One move back. A fresh possibility.'; playSound('undo'); }
-      else message = 'You are at the beginning of this deal.';
-      render();
-    } else if (name === 'hint') {
-      const hint = engine.hint();
-      if (hint) {
-        const from = toPile(hint.from);
-        const length = hint.from.type === 'column' ? getState().columns[hint.from.index].length : 1;
-        const index = hint.from.type === 'column' ? length - (hint.count ?? 1) : 0;
-        const id = cardAt(from, index);
-        table.select(null);
-        table.showHint({ pile: from, index, count: hint.count ?? 1 }, toPile(hint.to));
-        announce(`Try moving ${cardName(id)}${hint.count > 1 ? ' and its group' : ''} to ${locationName(hint.to)}.`);
-      } else { table.select(null); announce('No legal moves are available. Undo a move to try another route.'); }
-    } else if (name === 'auto') autoFinish();
+    if (name === 'undo') undo();
+    else if (name === 'hint') hint();
+    else if (name === 'auto') autoFinish();
+  }
+  /** Take back one move. Returns whether there was a move to take back. */
+  function undo() {
+    cancelAuto();
+    closeMenus();
+    const ok = engine.undo();
+    if (ok) { table.select(null); wonReported = false; message = 'One move back. A fresh possibility.'; playSound('undo'); }
+    else message = 'You are at the beginning of this deal.';
+    render();
+    return ok;
+  }
+  /** Point at a useful move from the core. Returns whether there was one. */
+  function hint() {
+    cancelAuto();
+    closeMenus();
+    table.select(null);
+    const suggestion = engine.hint();
+    if (!suggestion) { announce('No legal moves are available. Undo a move to try another route.'); return false; }
+    const from = toPile(suggestion.from);
+    const count = suggestion.count ?? 1;
+    const length = suggestion.from.type === 'column' ? getState().columns[suggestion.from.index].length : 1;
+    const index = suggestion.from.type === 'column' ? length - count : 0;
+    table.showHint({ pile: from, index, count }, toPile(suggestion.to));
+    announce(`Try moving ${cardName(cardAt(from, index))}${count > 1 ? ' and its group' : ''} to ${locationName(suggestion.to)}.`);
+    return true;
   }
   function click(event) {
     const button = event.target.closest('[data-action]');
@@ -285,7 +302,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     }
     else if (event.key === 'F2') { event.preventDefault(); newGame(); }
     else if (event.key === 'F1') { event.preventDefault(); showDialog('help'); }
-    else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); action('undo'); }
+    else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') { event.preventDefault(); undo(); }
     else if (event.key.toLowerCase() === 'h' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); action('hint'); }
     else if (event.key === 'Escape') { table.select(null); closeMenus(); announce('Selection cleared.'); }
   }
@@ -304,6 +321,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
   host.addEventListener('submit', submit);
   document.addEventListener('keydown', keydown);
   renderChrome();
+  onStart();
   const first = getState();
   await table.deal(pileState(first), { from: dealPoint(), order: dealOrder(first), stagger: 14 });
 
@@ -312,6 +330,10 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     exportReplay() { return typeof engine.replay === 'function' ? engine.replay() : engine.exportReplay(); },
     async loadReplay(replay) { cancelAuto(); engine = await loadFreecellReplay(replay); daily = false; table.select(null); closeMenus(); started = Date.now(); wonReported = false; message = 'Replay loaded. Pick up where this deal left off.'; render(false); },
     newGame,
+    undo,
+    canUndo: () => getState().moves > 0,
+    hint,
+    state: () => getState(),
     setFidelity(value) { fidelity = value === 'pixels' ? 'pixels' : 'crisp'; host.dataset.fidelity = fidelity; table.relayout(); },
     table,
   };

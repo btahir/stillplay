@@ -34,7 +34,7 @@ export const copy = {
       'Build each foundation from ace to king in one suit. In the seven columns, stack cards downward in alternating colours, and turn over hidden cards as you free them.',
       'Only a king can fill an empty column. When you are stuck, draw from the stock.',
     ],
-    shortcuts: [['Click or drag', 'Move a card'], ['Double-click', 'Send a card home'], ['F2', 'New game']],
+    shortcuts: [['Click or drag', 'Move a card'], ['Double-click · Shift + Enter', 'Send a card home'], ['D', 'Turn the stock'], ['Ctrl / ⌘ + Z', 'Undo'], ['H', 'Hint'], ['F', 'Finish when every card is face up'], ['F2', 'New deal'], ['F1', 'How to play']],
     dailyNoun: 'deal',
     description: 'Play Klondike Solitaire in your browser, with draw one or draw three and a shared daily deal.',
     genre: 'Card game',
