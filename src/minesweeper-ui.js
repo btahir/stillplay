@@ -39,7 +39,17 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
     updateTime();
   }
   function updateTime(){if(start&&game.state().status==='playing')elapsed=Math.min(999,Math.floor((performance.now()-start)/1000));container.querySelector('.mine-time').innerHTML=led(elapsed);container.querySelector('.mine-time').setAttribute('aria-label',`${elapsed} seconds`);}
-  function action(type,index){const state=game.state();if(state.status==='lost'||state.status==='won')return;const x=index%state.width,y=Math.floor(index/state.width);updateTime();if(type==='reveal'&&state.cells[index].revealed)type='chord';game[type](x,y);if(!start&&game.state().status!=='ready')start=performance.now();sound(game.state().status==='lost'?'lose':type);paint();}
+  function action(type,index){const state=game.state();if(state.status==='lost'||state.status==='won')return;const x=index%state.width,y=Math.floor(index/state.width);updateTime();if(type==='reveal'&&state.cells[index].revealed)type='chord';const opened=state.cells.filter(c=>c.revealed).length;game[type](x,y);if(!start&&game.state().status!=='ready')start=performance.now();actionSound(type,index,opened);paint();}
+  function actionSound(type,index,openedBefore){
+    const next=game.state();
+    if(next.status==='lost'){sound('explode');setTimeout(()=>{if(!destroyed)sound('lose');},420);return;}
+    if(next.status==='won'){sound('win');return;}
+    const opened=next.cells.filter(c=>c.revealed).length-openedBefore;
+    if(type==='flag'){if(!next.cells[index].revealed)sound(next.cells[index].flagged?'flag':'unflag');}
+    else if(type==='chord'){if(opened>0)sound(opened>3?'reveal-cascade':'chord');}
+    else if(opened>1)sound('reveal-cascade');
+    else if(opened===1)sound('reveal');
+  }
   function newGame(nextLevel=game.state().level, nextSeed){if(container.id==='hero-game'&&nextLevel!=='beginner'){location.assign('/minesweeper?level='+nextLevel);return;}level=nextLevel;seed=nextSeed??(daily?dailySeed():crypto.getRandomValues(new Uint32Array(1))[0]);game.newGame({level,seed});start=0;elapsed=0;frozenTime=0;wonShown=false;closeMenu();paint();}
   overlay.addEventListener('click',e=>{const b=e.target.closest('[data-cell]');if(!b||longPressed){longPressed=false;return;}action(flagMode?'flag':'reveal',Number(b.dataset.cell));});
   overlay.addEventListener('contextmenu',e=>{e.preventDefault();const b=e.target.closest('[data-cell]');if(b)action('flag',Number(b.dataset.cell));});
@@ -47,14 +57,14 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
   for(const type of ['pointerup','pointercancel','pointerleave','pointermove'])overlay.addEventListener(type,()=>clearTimeout(pressTimer));
   overlay.addEventListener('keydown',e=>{const b=e.target.closest('[data-cell]');if(!b)return;const i=Number(b.dataset.cell),w=game.state().width;let n=i;if(e.key==='f'||e.key==='F'){e.preventDefault();action('flag',i);return;}if(e.key==='ArrowLeft')n=i-1;else if(e.key==='ArrowRight')n=i+1;else if(e.key==='ArrowUp')n=i-w;else if(e.key==='ArrowDown')n=i+w;else return;e.preventDefault();overlay.children[Math.max(0,Math.min(overlay.children.length-1,n))].focus();});
   menuToggle.onclick=()=>{const open=menu.classList.toggle('open');menuToggle.setAttribute('aria-expanded',String(open));};
-  menu.onclick=e=>{const btn=e.target.closest('[data-level]');if(!btn)return;const l=btn.dataset.level;if(l==='times'){closeMenu();showDialog('Best times',`<p>Your fastest clear fields, stored on this device.</p>${['beginner','intermediate','expert'].map(l=>`<p><strong>${l[0].toUpperCase()+l.slice(1)}</strong><span style="float:right">${storageGet(`stillplay-best-${l}`,null)===null?'No time yet':`${storageGet(`stillplay-best-${l}`,null)} seconds`}</span></p>`).join('')}`);}else newGame(l==='new'?game.state().level:l);};
-  container.querySelector('.face-button').onclick=()=>newGame();
+  menu.onclick=e=>{const btn=e.target.closest('[data-level]');if(!btn)return;const l=btn.dataset.level;if(l==='times'){closeMenu();showDialog('Best times',`<p>Your fastest clear fields, stored on this device.</p>${['beginner','intermediate','expert'].map(l=>`<p><strong>${l[0].toUpperCase()+l.slice(1)}</strong><span style="float:right">${storageGet(`stillplay-best-${l}`,null)===null?'No time yet':`${storageGet(`stillplay-best-${l}`,null)} seconds`}</span></p>`).join('')}`);}else{sound('new-game');newGame(l==='new'?game.state().level:l);}};
+  container.querySelector('.face-button').onclick=()=>{sound('new-game');newGame();};
   container.querySelector('#mine-help').onclick=()=>showDialog('A small field. A familiar feeling.','<p>Reveal every square without a mine. A number tells you how many mines touch that square, including diagonals.</p><p><strong>Click / tap:</strong> reveal<br><strong>Right-click / long-press / F:</strong> flag<br><strong>Click an open number:</strong> clear its neighbours when the right number of flags surround it<br><strong>Arrow keys:</strong> move focus<br><strong>F2:</strong> new game</p><p>Your first reveal is safe in this implementation. Original-binary equivalence is awaiting verification.</p>');
   container.querySelector('.flag-mode')?.addEventListener('click',e=>{flagMode=!flagMode;e.currentTarget.classList.toggle('active',flagMode);e.currentTarget.setAttribute('aria-pressed',String(flagMode));container.querySelector('.mine-help-text').textContent=flagMode?'Tap to flag':'Right-click to flag';});
   function setFidelity(value){fidelity=value;storageSet('stillplay-fidelity',value);const b=container.querySelector('.fidelity-toggle');if(b)b.textContent=value==='pixels'?'Original pixels':'Crisp drawing';lastShape='';paint();}
   container.querySelector('.fidelity-toggle')?.addEventListener('click',()=>setFidelity(fidelity==='pixels'?'crisp':'pixels'));
-  container.querySelector('.sound-toggle')?.addEventListener('click',e=>{const on=!storageGet('stillplay-sound',false);storageSet('stillplay-sound',on);e.currentTarget.textContent=`Sound ${on?'on':'off'}`;e.currentTarget.setAttribute('aria-pressed',String(on));if(on)sound('reveal');});
-  function keyboard(e){if(e.key==='F2'&&!document.querySelector('dialog[open]')){e.preventDefault();newGame();}if(e.key==='Escape')closeMenu();}
+  container.querySelector('.sound-toggle')?.addEventListener('click',e=>{const on=!storageGet('stillplay-sound',false);storageSet('stillplay-sound',on);e.currentTarget.textContent=`Sound ${on?'on':'off'}`;e.currentTarget.setAttribute('aria-pressed',String(on));if(on)sound('toggle-on');});
+  function keyboard(e){if(e.key==='F2'&&!document.querySelector('dialog[open]')){e.preventDefault();sound('new-game');newGame();}if(e.key==='Escape')closeMenu();}
   document.addEventListener('keydown',keyboard);window.addEventListener('resize',paint);const timer=setInterval(updateTime,250);setFidelity(fidelity);
   return {destroy(){destroyed=true;clearInterval(timer);clearTimeout(pressTimer);document.removeEventListener('keydown',keyboard);window.removeEventListener('resize',paint);},exportReplay:()=>game.replay(),loadReplay(replay){game.loadReplay(replay);elapsed=Math.floor((replay.actions.at(-1)?.t||0)/1000);start=game.state().status==='playing'?performance.now()-elapsed*1000:0;wonShown=true;paint();},newGame,setFidelity,state:()=>game.state()};
 }

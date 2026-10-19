@@ -70,7 +70,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     if (ok) {
       selection = null;
       message = 'A little more room to think.';
-      playSound('move');
+      playSound(to.type === 'foundation' ? 'foundation' : 'card-place');
     } else {
       message = 'That move needs a different destination or more empty cells.';
       playSound('invalid');
@@ -96,6 +96,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     } else {
       selection = { from: ref, count };
       message = `Select a destination for ${cardName(id)}${count > 1 ? ` and the ${count - 1} card${count === 2 ? '' : 's'} below it` : ''}.`;
+      playSound('card-pick');
     }
     render();
   }
@@ -129,7 +130,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
       if (engine.autoMove()) {
         moved += 1;
         message = 'Moving safe cards to the foundations…';
-        playSound('move');
+        playSound('foundation');
         render();
         autofinishTimer = setTimeout(step, fidelity === 'pixels' ? 90 : 150);
       } else {
@@ -152,7 +153,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     cancelAuto();
     openMenu = null;
     if (name === 'undo') {
-      if (engine.undo()) { selection = null; wonReported = false; message = 'One move back. A fresh possibility.'; playSound('move'); }
+      if (engine.undo()) { selection = null; wonReported = false; message = 'One move back. A fresh possibility.'; playSound('undo'); }
       else message = 'You are at the beginning of this deal.';
       render();
     } else if (name === 'hint') {
