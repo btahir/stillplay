@@ -29,9 +29,9 @@ export const games = [
     mount: null,
   },
   {
-    id: 'hearts', title: 'Hearts', path: '/hearts', icon: 'hearts', status: 'planned',
+    id: 'hearts', title: 'Hearts', path: '/hearts', icon: 'hearts', status: 'playable',
     tagline: 'Three rivals. Avoid the queen.',
-    mount: null,
+    mount: () => import('./hearts-ui.js').then((m) => m.mountHearts),
   },
   {
     id: 'pinball', title: '3D Pinball', path: null, icon: 'pinball', status: 'later',
