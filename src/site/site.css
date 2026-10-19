@@ -548,7 +548,6 @@ main { view-transition-name: page; }
   .dailies, .collection, .secrets-teaser, .proof, .copy-section { padding-top: 40px; padding-bottom: 40px; }
   .dailies { padding-top: 0; }
   .daily-list { grid-template-columns: minmax(0, 1fr); }
-  .game-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 14px; }
   .game-card h3 { font-size: 20px; }
   .game-card-tagline { font-size: 13px; }
@@ -581,11 +580,11 @@ main { view-transition-name: page; }
   .site-nav a { padding: 8px 6px; font-size: 13px; }
   .icon-button { width: 34px; height: 34px; }
   .hero-copy h1 { font-size: 42px; }
-  .game-grid { grid-template-columns: minmax(0, 1fr); }
   .switcher-glyph { display: none; }
   .switcher-tab { padding: 0 10px; }
 }
 
 @media (max-width: 345px) {
   .site-nav .nav-secrets { display: none; }
+  .game-grid { grid-template-columns: minmax(0, 1fr); }
 }
