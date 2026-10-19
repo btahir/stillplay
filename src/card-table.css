@@ -1,0 +1,82 @@
+/* Shared card-table styles. Games set --ct-accent, --ct-radius and --ct-shadow on their table root. */
+.ct-root {
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  --ct-accent: #f1c75b;
+  --ct-radius: 4px;
+  --ct-shadow: 0 1px 1.5px rgb(4 30 18 / 0.38);
+}
+.ct-pile { position: relative; }
+.ct-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ct-radius);
+  background: none;
+  color: inherit;
+  display: block;
+  line-height: 0;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  appearance: none;
+}
+.ct-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  box-shadow: var(--ct-shadow);
+  transform-origin: 50% 50%;
+  transition: translate 0.14s ease, box-shadow 0.14s ease;
+}
+.ct-face > svg { display: block; width: 100%; height: 100%; border-radius: inherit; pointer-events: none; }
+.ct-dragging, .ct-dragging .ct-card { cursor: grabbing; }
+.ct-card.ct-lifted .ct-face {
+  transition: none;
+  box-shadow: 0 16px 26px -10px rgb(6 26 15 / 0.55), 0 4px 8px rgb(6 26 15 / 0.22);
+}
+.ct-card.ct-selected .ct-face {
+  translate: 0 -3px;
+  box-shadow: 0 0 0 2px var(--ct-accent), 0 8px 14px -6px rgb(6 26 15 / 0.5);
+}
+.ct-card.ct-drop-card .ct-face,
+.ct-card.ct-hint .ct-face { box-shadow: 0 0 0 2px var(--ct-accent), var(--ct-shadow); }
+.ct-pile.ct-drop-target > [data-ct-target] { box-shadow: inset 0 0 0 2px var(--ct-accent); }
+.ct-pile.ct-hint > [data-ct-target] { box-shadow: inset 0 0 0 2px var(--ct-accent); }
+.ct-card.ct-hint .ct-face { animation: ct-hint 0.9s ease-in-out 2; }
+@keyframes ct-hint {
+  50% { translate: 0 -3px; box-shadow: 0 0 0 3px var(--ct-accent), 0 10px 18px -8px rgb(6 26 15 / 0.6); }
+}
+.ct-card:focus-visible { outline: 2px solid var(--ct-accent); outline-offset: 2px; }
+.ct-cascade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3000;
+  cursor: pointer;
+  touch-action: none;
+}
+.ct-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-face { transition: none; }
+  .ct-card.ct-hint .ct-face { animation: none; translate: 0 -3px; }
+}
