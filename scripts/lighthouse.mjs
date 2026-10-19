@@ -20,7 +20,7 @@ if (!baseURL) {
 }
 const routeArgs = process.argv.flatMap((argument, index, all) => argument === '--route' && all[index + 1] ? [all[index + 1]] : []);
 const routes = routeArgs.length ? routeArgs : ['/', '/freecell'];
-if (routes.some((route) => !['/', '/freecell'].includes(route))) throw new Error('Supported Lighthouse routes: / and /freecell.');
+if (routes.some((route) => !route.startsWith('/'))) throw new Error('Lighthouse routes must start with /.');
 const summary = { generatedAt: new Date().toISOString(), note: 'One local Lighthouse run per route. Simulated mobile throttling; not a real midrange phone measurement.', pages: [] };
 if (routeArgs.length) {
   try { summary.pages = JSON.parse(await readFile(join(output, 'summary.json'), 'utf8')).pages.filter((page) => !routes.includes(page.route)); }
@@ -49,7 +49,7 @@ try {
       logLevel: 'error',
     });
     if (!result?.lhr) throw new Error(`Lighthouse did not return a report for ${route}`);
-    const name = route === '/' ? 'home' : route.slice(1);
+    const name = route === '/' ? 'home' : route.slice(1).replaceAll('/', '-');
     await writeFile(join(output, `${name}.json`), result.report[0]);
     await writeFile(join(output, `${name}.html`), result.report[1]);
     const page = {

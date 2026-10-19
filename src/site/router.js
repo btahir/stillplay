@@ -9,10 +9,10 @@
 import { siteGames } from './registry.js';
 import { pageMeta } from './meta.js';
 import { escape, prefersReducedMotion } from './ui/dom.js';
-import * as home from './pages/home.js';
-import * as gamePage from './pages/game.js';
-
+// Every page loads on demand; the built HTML modulepreloads the one its route needs.
 const lazy = {
+  home: () => import('./pages/home.js'),
+  game: () => import('./pages/game.js'),
   daily: () => import('./pages/daily.js'),
   scoreboard: () => import('./pages/scoreboard.js'),
   about: () => import('./pages/about.js'),
@@ -24,15 +24,15 @@ const lazy = {
 /** Resolve a pathname to { load, params }. */
 export function match(pathname) {
   const path = pathname.replace(/\/+$/, '') || '/';
-  if (path === '/') return { name: 'home', load: async () => home, params: {} };
+  if (path === '/') return { name: 'home', load: lazy.home, params: {} };
   const games = siteGames();
   const game = games.find((item) => item.path === path);
-  if (game) return game.playable ? { name: 'game', load: async () => gamePage, params: { game, daily: false } } : { name: 'soon', load: lazy.soon, params: { game } };
+  if (game) return game.playable ? { name: 'game', load: lazy.game, params: { game, daily: false } } : { name: 'soon', load: lazy.soon, params: { game } };
   if (path === '/daily') return { name: 'daily', load: lazy.daily, params: {} };
   const daily = path.match(/^\/daily\/([\w-]+)$/);
   if (daily) {
     const dailyGame = games.find((item) => item.id === daily[1] && item.playable);
-    if (dailyGame) return { name: 'game', load: async () => gamePage, params: { game: dailyGame, daily: true } };
+    if (dailyGame) return { name: 'game', load: lazy.game, params: { game: dailyGame, daily: true } };
   }
   if (path === '/scoreboard') return { name: 'scoreboard', load: lazy.scoreboard, params: {} };
   if (path === '/about') return { name: 'about', load: lazy.about, params: {} };
@@ -60,6 +60,16 @@ function markNav(routeName, params) {
     if (link.dataset.nav === current) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
+}
+
+const KEEP = 'h1, h2, .hero-lede, .play-title p, .page-intro > p, .lede';
+
+function keepPainted(previous) {
+  const fresh = [...main.querySelectorAll(KEEP)];
+  previous.forEach((old, index) => {
+    const now = fresh[index];
+    if (now && now.outerHTML === old.outerHTML) now.replaceWith(old);
+  });
 }
 
 function runCleanup() {
@@ -101,6 +111,9 @@ async function render({ initial = false, scroll = 'top' } = {}) {
   }
   if (id !== routeId) return;
 
+  // The built HTML carries a prerendered first screen. Keep its already-painted text nodes
+  // when the fresh render produces the same markup, so nothing visibly repaints.
+  const prerendered = initial ? [...main.querySelectorAll(KEEP)] : [];
   const swap = () => {
     runCleanup();
     setTitle(location.pathname);
@@ -111,6 +124,7 @@ async function render({ initial = false, scroll = 'top' } = {}) {
     } catch (error) {
       showError(error);
     }
+    if (prerendered.length) keepPainted(prerendered);
     if (scroll === 'top' && !scrollForHash(location.hash)) window.scrollTo(0, 0);
   };
 

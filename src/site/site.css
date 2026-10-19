@@ -12,7 +12,7 @@
   --ink: #282e29;
   --ink-2: #3c433d;
   --muted: #5f665b;
-  --faint: #868c81;
+  --faint: #666c62;
   --line: #dcded3;
   --line-strong: #c4c8bb;
   --green: #2c6249;
@@ -37,7 +37,7 @@
   --ink: #e7e9df;
   --ink-2: #d2d6ca;
   --muted: #a3ac9e;
-  --faint: #7f8879;
+  --faint: #8b9486;
   --line: #2f3931;
   --line-strong: #435045;
   --green: #a3c69d;
@@ -125,7 +125,9 @@ main:focus { outline: none; }
 
 /* ---- home: hero --------------------------------------------------------- */
 
-.hero { display: grid; grid-template-columns: minmax(280px, .74fr) minmax(0, 1.26fr); gap: 56px; padding-top: 36px; padding-bottom: 72px; align-items: center; }
+.hero { display: grid; grid-template-columns: minmax(280px, .74fr) minmax(0, 1.26fr); gap: 56px; padding-top: 36px; padding-bottom: 72px; align-items: start; }
+/* Top-aligned so the copy never moves when the game finishes loading. */
+.hero-copy { padding-top: 128px; }
 .hero-copy h1 { font-size: clamp(52px, 5.4vw, 80px); }
 .hero-lede { max-width: 360px; font-size: 16px; line-height: 1.75; color: var(--muted); margin-bottom: 26px; }
 .hero-note { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); margin: 0; }
@@ -160,13 +162,18 @@ main:focus { outline: none; }
 .chrome-button[hidden] { display: none; }
 .chrome-button .icon { transition: transform .3s var(--ease); }
 .chrome-button[data-command='new']:hover .icon { transform: rotate(-90deg); }
-.stage-surface { flex: 1; display: flex; justify-content: center; align-items: center; padding: 12px 24px 40px; min-width: 0; }
+.stage-surface { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 12px 24px 40px; min-width: 0; }
 .stage-game { width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 /* Game windows were drawn against the old 14px / normal line-height base; keep their metrics exact. */
 .stage-game, .article .demo { font-size: 14px; line-height: normal; text-rendering: auto; }
 .loading-game { min-height: 320px; display: grid; place-items: center; font-size: 14px; color: var(--muted); text-align: center; }
 .stage-game > .loading-game::before { content: ''; display: block; width: 28px; height: 28px; margin: 0 auto 12px; border: 1.5px solid var(--line-strong); border-top-color: var(--green); border-radius: 50%; animation: spin .9s linear infinite; }
 .loading-game { align-content: center; }
+/* Reserve each game's measured height while it loads, so nothing below it jumps. */
+.stage-game > .loading-game { min-height: 480px; }
+.stage[data-game='minesweeper'] .stage-game > .loading-game { min-height: 482px; }
+.stage[data-game='freecell'] .stage-game > .loading-game { min-height: 575px; }
+@media (max-width: 640px) { .stage[data-game='freecell'] .stage-game > .loading-game { min-height: 478px; } }
 
 /* The shell owns sound and drawing controls; hide duplicates inside game toolbars. */
 .stage .game-toolbar .sound-toggle, .stage .game-toolbar .fidelity-toggle, .stage .game-toolbar .separator, .stage .fc-sound-toggle, .stage .fc-fidelity-toggle { display: none; }
@@ -486,7 +493,7 @@ main { view-transition-name: page; }
 @media (max-width: 1080px) {
   :root { --gutter: 32px; }
   .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  .hero-copy { max-width: 640px; }
+  .hero-copy { max-width: 640px; padding-top: 0; }
   .hero-copy h1 br { display: none; }
   .hero-play { order: -1; }
   .hero-stage { min-height: 460px; }

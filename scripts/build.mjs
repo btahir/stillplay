@@ -18,10 +18,13 @@ import { spawnSync } from 'node:child_process';
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
 import { allPaths, jsonLd, pageMeta } from '../src/site/meta.js';
 import { siteGames } from '../src/site/registry.js';
+import { match } from '../src/site/router.js';
 import { drawMini } from '../src/site/minis.js';
 import { secrets } from '../src/secrets.js';
 import { ogHtml } from './lib/og.mjs';
 import { renderPngs } from './lib/render-png.mjs';
+import { prerender } from './lib/prerender.mjs';
+import { createStaticServer } from './dev.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
@@ -136,14 +139,40 @@ const template = await readFile(join(dist, 'index.html'), 'utf8');
 const attribute = (text) => String(text).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 const xml = (text) => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
-/** Which game module a route should preload, read from the registry's mount import. */
-function preloadFor(path) {
-  const games = siteGames();
-  const daily = path.match(/^\/daily\/([\w-]+)$/);
-  const game = path === '/' ? firstPlayable : games.find((item) => item.playable && (item.path === path || item.id === daily?.[1]));
-  if (!game) return [];
-  const module = game.mount.toString().match(/import\(['"]\.\/([\w./-]+)['"]\)/)?.[1];
-  return ['/src/site/play/stage.js', ...(module ? [`/src/${module}`] : [])];
+/** A module's own static imports (one level), as project-relative paths. */
+async function directImports(file) {
+  const source = await readFile(join(root, file), 'utf8');
+  return [...source.matchAll(/^\s*(?:import|export)\s+(?:[^'"]*?\sfrom\s+)?['"](\.{1,2}\/[^'"]+)['"]/gm)].map((found) => join(dirname(file), found[1]));
+}
+
+const PAGE_MODULES = { home: 'pages/home.js', game: 'pages/game.js', daily: 'pages/daily.js', scoreboard: 'pages/scoreboard.js', about: 'pages/about.js', secrets: 'pages/secrets.js', secret: 'pages/secrets.js', soon: 'pages/coming-soon.js', 'not-found': 'pages/not-found.js' };
+
+/**
+ * The modules a route needs first, so the browser fetches them in parallel instead of
+ * discovering them one import at a time. Game routes add the game's own module, read from
+ * the registry's mount import.
+ */
+async function preloadsFor(path) {
+  const route = match(path);
+  const entries = ['src/site/router.js', `src/site/${PAGE_MODULES[route.name]}`];
+  const game = path === '/' ? firstPlayable : route.name === 'game' ? route.params.game : null;
+  if (game) {
+    entries.push('src/site/play/stage.js');
+    const module = game.mount.toString().match(/import\(['"]\.\/([\w./-]+)['"]\)/)?.[1];
+    // The game module and its core, so the board is ready as soon as possible.
+    if (module) entries.push(`src/${module}`, ...(await directImports(`src/${module}`)).filter((file) => file.endsWith('-core.js')));
+  }
+  // The route's direct chain only. Preloading the whole module graph made the first paint
+  // compete with a dozen small modules (measured with Lighthouse, 2026-10-18).
+  return entries.map((file) => `/${file}`);
+}
+
+/** Safe CSS minification: drop comments and collapse whitespace. */
+const minifyCss = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,>])\s*/g, '$1').replace(/;}/g, '}').trim();
+// Inline the render-blocking stylesheets: the first paint then needs only the HTML.
+const inlined = [];
+for (const href of [...template.matchAll(/<link rel="stylesheet" href="(\/src\/[^"]+\.css)">/g)].map((found) => found[1])) {
+  inlined.push([href, minifyCss(await readFile(join(dist, href), 'utf8'))]);
 }
 
 for (const path of paths) {
@@ -152,12 +181,7 @@ for (const path of paths) {
   const url = `${origin}${path === '/' ? '/' : path}`;
   const image = ogFormat === 'png' ? `${origin}/og/${ogFiles.get(path).name}.png` : `${origin}/og.svg`;
   const structured = jsonLd(path, origin, meta);
-  const preloads = [
-    '/src/site/router.js',
-    ...(path === '/' ? ['/src/site/pages/home.js'] : []),
-    ...(meta.game ? ['/src/site/pages/game.js'] : []),
-    ...preloadFor(path),
-  ];
+  const preloads = await preloadsFor(path);
   const head = [
     `<link rel="canonical" href="${attribute(url)}">`,
     `<meta property="og:url" content="${attribute(url)}">`,
@@ -167,7 +191,9 @@ for (const path of paths) {
     `<meta name="stillplay-build" content="${build}">`,
     structured ? `<script type="application/ld+json">${JSON.stringify(structured).replaceAll('<', '\\u003c')}</script>` : '',
   ].filter(Boolean).join('\n  ');
-  const html = template
+  let html = template;
+  for (const [href, css] of inlined) html = html.replace(`<link rel="stylesheet" href="${href}">`, () => `<style data-href="${href}">${css}</style>`);
+  html = html
     .replace(/<title>[^<]*<\/title>/, `<title>${xml(meta.title)}</title>`)
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${attribute(meta.description)}$2`)
     .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${attribute(meta.title)}$2`)
@@ -180,6 +206,8 @@ for (const path of paths) {
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, html);
 }
+
+const prerendered = args.includes('--no-prerender') ? 0 : await prerender(dist, paths, createStaticServer);
 
 // ---- 7. sitemap and robots -------------------------------------------------------------
 const today = new Date().toISOString().slice(0, 10);
@@ -198,7 +226,7 @@ for (const path of await walk(dist)) {
 }
 await mkdir(join(root, 'notes'), { recursive: true });
 await writeFile(join(root, 'notes/payload-sizes.json'), JSON.stringify({ generatedAt: new Date().toISOString(), compiler, buildCommit, build, origin, files: sizes }, null, 2));
-console.log(`Built dist (${build}) with ${paths.length} routes, ${offline.length} offline files and ${sizes.length} precompressed assets. OG images: ${ogFormat}${ogJobs.length ? ` (${ogJobs.length} rendered)` : ' (cached)'}. Cores: ${compiler}.`);
+console.log(`Built dist (${build}) with ${paths.length} routes (${prerendered} prerendered), ${offline.length} offline files and ${sizes.length} precompressed assets. OG images: ${ogFormat}${ogJobs.length ? ` (${ogJobs.length} rendered)` : ' (cached)'}. Cores: ${compiler}.`);
 for (const game of cores) {
   const size = sizes.find((item) => item.path === `cores/${game}.wasm`);
   if (size) console.log(`${game}: ${size.rawBytes} bytes raw; ${size.brotliBytes} bytes Brotli.`);
