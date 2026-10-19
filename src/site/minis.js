@@ -174,17 +174,7 @@ function hearts() {
   return svg(body, 'A trick of Hearts, with the queen of spades');
 }
 
-function pinball({ still }) {
-  const body = `<rect width="${W}" height="${H}" class="mini-table"/>
-    <path d="M70 140 60 18q0-8 8-8h104q8 0 8 8l-10 122" class="mini-rail"/>
-    <circle cx="102" cy="48" r="11" class="mini-bumper"/><circle cx="140" cy="44" r="9" class="mini-bumper"/><circle cx="122" cy="74" r="10" class="mini-bumper"/>
-    <path d="M90 124l22 8M150 124l-22 8" class="mini-flipper"/>
-    <path d="M76 98l10 18M164 98l-10 18" class="mini-rail"/>
-    ${still ? '<circle cx="118" cy="60" r="4.5" class="mini-ball"/>' : '<circle r="4.5" class="mini-ball"><animateMotion dur="5s" repeatCount="indefinite" path="M120 128C110 90 80 70 98 34S150 30 140 60 112 80 128 100 132 124 120 128Z"/></circle>'}`;
-  return svg(body, 'A pinball table with a ball bouncing between bumpers');
-}
-
-const scenes = { minesweeper, freecell, solitaire, spider, hearts, pinball };
+const scenes = { minesweeper, freecell, solitaire, spider, hearts };
 
 /** SVG markup for a game id; unknown ids get a plain card table. `still` drops SMIL motion. */
 export function drawMini(id, { still = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)').matches : true } = {}) {

@@ -40,7 +40,6 @@ const glyphs = {
   solitaire: '<rect x="6" y="3" width="22" height="28" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M17 9.5c-3.4 4-6.5 5.8-6.5 8.6 0 2 2.6 3.2 5 1.2l-1 4.2h5l-1-4.2c2.4 2 5 .8 5-1.2 0-2.8-3.1-4.6-6.5-8.6Z" fill="currentColor"/>',
   spider: '<path d="M10 3h20v26H10" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4" y="7" width="20" height="25" rx="1.5" fill="var(--paper)" stroke="currentColor" stroke-width="1.3"/><g stroke="currentColor" stroke-width="1.2" fill="none"><path d="M10 14l-3-2.5M18 14l3-2.5M10 18H6.5M18 18h3.5M10 22l-3 2.5M18 22l3 2.5"/></g><ellipse cx="14" cy="18" rx="3.3" ry="4.6" fill="currentColor"/>',
   hearts: '<rect x="6" y="3" width="22" height="28" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M17 24.5C7.5 18 10 10.5 17 14.5 24 10.5 26.5 18 17 24.5Z" fill="currentColor"/>',
-  pinball: '<path d="M9 3h16l4 28H5z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="m11 25 5 3M23 25l-5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="17" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="21" cy="19" r="1.8" fill="currentColor"/>',
 };
 
 export function gameGlyph(name, className = 'game-glyph') {

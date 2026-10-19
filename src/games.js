@@ -45,11 +45,6 @@ export const games = [
     tagline: 'Three rivals. Avoid the queen.',
     mount: () => import('./hearts-ui.js').then((m) => m.mountHearts),
   },
-  {
-    id: 'pinball', title: '3D Pinball', path: null, icon: 'pinball', status: 'later',
-    tagline: 'Later, with the right licence.',
-    mount: null,
-  },
 ];
 
 export const gameById = (id) => games.find((game) => game.id === id);

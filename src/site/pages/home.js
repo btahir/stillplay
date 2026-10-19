@@ -104,8 +104,8 @@ export function render(main) {
 
   <section class="collection wrap" id="collection" aria-labelledby="collection-heading">
     <div class="section-heading">
-      <div><p class="section-kicker">The collection</p><h2 id="collection-heading">Six old friends.</h2></div>
-      <p class="section-aside">${games.length === 1 ? 'One to play now.' : `${games.length} to play now.`} The rest are on their way, one at a time.</p>
+      <div><p class="section-kicker">The collection</p><h2 id="collection-heading">Five old friends.</h2></div>
+      <p class="section-aside">${games.length === all.length ? 'All five ready to play, each with a daily of its own.' : `${games.length} to play now. The rest are on their way, one at a time.`}</p>
     </div>
     <div class="game-grid">${all.map(collectionCard).join('')}</div>
   </section>

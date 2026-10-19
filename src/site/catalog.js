@@ -60,15 +60,6 @@ export const copy = {
     description: 'Play Hearts in your browser against three computer players, with a shared daily deal.',
     genre: 'Card game',
   },
-  pinball: {
-    intro: 'Later, with the right licence.',
-    loading: 'Warming up the table…',
-    howTo: [],
-    shortcuts: [],
-    dailyNoun: 'table',
-    description: 'A pinball table is planned for a later wave.',
-    genre: 'Pinball',
-  },
 };
 
 export const fallbackCopy = {

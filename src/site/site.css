@@ -250,6 +250,13 @@ main:focus { outline: none; }
 
 .game-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 28px; }
 .game-card { position: relative; display: flex; flex-direction: column; }
+/* Five games: two wide cards, then three (no orphan); dailies follow the same rhythm. */
+.game-grid:has(> :nth-child(5):last-child), .daily-list:has(> :nth-child(5):last-child) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.game-grid:has(> :nth-child(5):last-child) > :nth-child(-n+2), .daily-list:has(> :nth-child(5):last-child) > :nth-child(-n+2) { grid-column: span 3; }
+.game-grid:has(> :nth-child(5):last-child) > :nth-child(n+3), .daily-list:has(> :nth-child(5):last-child) > :nth-child(n+3) { grid-column: span 2; }
+.game-grid:has(> :nth-child(5):last-child) > :nth-child(-n+2) .game-card-art { aspect-ratio: 16 / 8; }
+.game-card-art:has(.mini-felt) { background: #2f6a4f; }
+[data-theme='dark'] .game-card-art:has(.mini-felt) { background: #24533e; }
 .game-card-art { aspect-ratio: 16 / 10; background: var(--card); display: grid; place-items: center; overflow: hidden; margin-bottom: 18px; transition: background .25s; }
 .game-card-art .mini { width: 100%; height: 100%; display: block; transition: transform .5s var(--ease); }
 .game-card:hover .game-card-art .mini { transform: scale(1.025); }
@@ -521,6 +528,14 @@ main { view-transition-name: page; }
   .hero-play { order: -1; }
   .hero-stage { min-height: 460px; }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .game-grid:has(> :nth-child(5):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .game-grid:has(> :nth-child(5):last-child) > * { grid-column: span 1; }
+  .game-grid:has(> :nth-child(5):last-child) > :first-child { grid-column: 1 / -1; }
+  .game-grid:has(> :nth-child(5):last-child) > :nth-child(-n+2) .game-card-art { aspect-ratio: 16 / 10; }
+  .game-grid:has(> :nth-child(5):last-child) > :first-child .game-card-art { aspect-ratio: 16 / 7; }
+  .daily-list:has(> :nth-child(5):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .daily-list:has(> :nth-child(5):last-child) > * { grid-column: span 1; }
+  .daily-list:has(> :nth-child(5):last-child) > :first-child { grid-column: 1 / -1; }
   .proof, .proof-grid, .copy-section { gap: 40px; }
 }
 
@@ -555,7 +570,7 @@ main { view-transition-name: page; }
   .replay-tools { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 28px; }
   .dailies, .collection, .secrets-teaser, .proof, .copy-section { padding-top: 40px; padding-bottom: 40px; }
   .dailies { padding-top: 0; }
-  .daily-list { grid-template-columns: minmax(0, 1fr); }
+  .daily-list, .daily-list:has(> :nth-child(5):last-child) { grid-template-columns: minmax(0, 1fr); }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 14px; }
   .game-card h3 { font-size: 20px; }
   .game-card-tagline { font-size: 13px; }
@@ -595,5 +610,6 @@ main { view-transition-name: page; }
 
 @media (max-width: 345px) {
   .site-nav .nav-secrets { display: none; }
-  .game-grid { grid-template-columns: minmax(0, 1fr); }
+  .game-grid, .game-grid:has(> :nth-child(5):last-child) { grid-template-columns: minmax(0, 1fr); }
+  .game-grid:has(> :nth-child(5):last-child) > :first-child .game-card-art { aspect-ratio: 16 / 10; }
 }
