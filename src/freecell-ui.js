@@ -154,15 +154,17 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
     state.foundations.forEach((rank, index) => host.querySelector(`.fc-foundation[data-index="${index}"]`)
       .setAttribute('aria-label', `${SUITS[index]} foundation, ${rank ? cardName(index * 13 + rank - 1) : 'empty'}`));
     const panel = host.querySelector('.fc-win-panel');
-    if (state.status === 'won') {
+    // In the site shell the win dialog is the one result screen.
+    if (state.status === 'won' && !chrome) {
       panel.innerHTML = `<span class="fc-win-kicker">A clean table.</span><strong>You won deal #${state.deal}.</strong><p>${state.moves} moves · ${elapsed}s${daily ? ' · Daily challenge complete' : ''}</p><button type="button" class="fc-classic-button" data-action="new">${daily ? 'Play this deal again' : 'Play another deal'}</button>`;
       panel.hidden = false;
     } else panel.hidden = true;
     host.querySelector('.fc-message').textContent = message;
     if (state.status === 'won' && !wonReported) {
       wonReported = true;
+      announce(`You won deal #${state.deal} in ${state.moves} moves.`);
       playSound('win');
-      onWin({ game: 'freecell', deal: state.deal, seed: state.deal, moves: state.moves, daily, elapsedSeconds: elapsed });
+      onWin({ game: 'freecell', deal: state.deal, seed: state.deal, moves: state.moves, daily, elapsedSeconds: elapsed, params: { deal: state.deal } });
     }
   }
   function render(animate = true) {
@@ -328,7 +330,7 @@ export async function mountFreecell(container, { daily = false, onWin = () => {}
   return {
     destroy() { destroyed = true; cancelAuto(); table.destroy(); document.removeEventListener('keydown', keydown); host.removeEventListener('click', click); host.removeEventListener('submit', submit); host.remove(); },
     exportReplay() { return typeof engine.replay === 'function' ? engine.replay() : engine.exportReplay(); },
-    async loadReplay(replay) { cancelAuto(); engine = await loadFreecellReplay(replay); daily = false; table.select(null); closeMenus(); started = Date.now(); wonReported = false; message = 'Replay loaded. Pick up where this deal left off.'; render(false); },
+    async loadReplay(replay) { cancelAuto(); engine = await loadFreecellReplay(replay); daily = false; table.select(null); closeMenus(); started = Date.now(); wonReported = false; message = chrome ? '' : 'Replay loaded. Pick up where this deal left off.'; render(false); },
     newGame,
     undo,
     canUndo: () => getState().moves > 0,

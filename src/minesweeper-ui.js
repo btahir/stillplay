@@ -48,7 +48,7 @@ export async function mountMinesweeper(container,{daily=false,level='beginner',s
     });
     container.querySelector('.mine-counter').innerHTML=led(state.mines-state.flags);container.querySelector('.mine-counter').setAttribute('aria-label',`${state.mines-state.flags} mines remaining`);container.querySelector('.face-button').innerHTML=smile(state.status);
     container.querySelector('.mine-status').textContent=state.status==='won'?'Field cleared. Nicely done.':state.status==='lost'?'One more round?':`${state.level[0].toUpperCase()+state.level.slice(1)}${daily?' · Daily':''}`;
-    if(state.status==='won'&&!wonShown){wonShown=true;frozenTime=elapsed;const key=`stillplay-best-${state.level}`;const prev=storageGet(key,null);if(prev===null||elapsed<prev)storageSet(key,elapsed);queueMicrotask(()=>onWin({game:'minesweeper',level:state.level,seed:state.seed,elapsedSeconds:elapsed,daily,flags:game.replay().actions.filter(a=>a.type==='flag').length,replay:game.replay()}));}
+    if(state.status==='won'&&!wonShown){wonShown=true;frozenTime=elapsed;const key=`stillplay-best-${state.level}`;const prev=storageGet(key,null);if(prev===null||elapsed<prev)storageSet(key,elapsed);queueMicrotask(()=>onWin({game:'minesweeper',level:state.level,seed:state.seed,elapsedSeconds:elapsed,daily,flags:game.replay().actions.filter(a=>a.type==='flag').length,replay:game.replay(),params:{level:state.level,seed:state.seed}}));}
     if(state.status==='lost'&&!lostShown){
       lostShown=true;
       if(!frozenTime)frozenTime=elapsed;

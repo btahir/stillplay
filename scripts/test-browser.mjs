@@ -114,7 +114,7 @@ try {
     assert.ok(await page.evaluate(() => Number(JSON.parse(localStorage.getItem('stillplay-best-beginner'))) >= 0));
     await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible();
     await expect(page.locator('#dialog-title')).toHaveText('A little victory');
-    await expect(page.locator('.share-preview')).toContainText('seed=42');
+    await expect(page.locator('.share-preview')).toContainText('level=beginner&seed=42');
     const stats = await page.evaluate(() => JSON.parse(localStorage.getItem('stillplay-stats-v1')).minesweeper);
     assert.equal(stats.won, 1);
     assert.equal(stats.played, 1);
@@ -462,12 +462,16 @@ try {
     }
     assert.ok(replay, 'A deal that reaches the automatic finish exists.');
     await page.goto(`${baseURL}/solitaire#replay=${Buffer.from(JSON.stringify(replay)).toString('base64')}`);
-    await expect(page.locator('.sol-message')).toContainText('Replay loaded');
+    await expect(page.locator('#toast')).toContainText('Replay loaded');
     await expect(page.locator('.sol-quick-actions .sol-finish')).toBeVisible();
     await expect(page.locator('.sol-title')).toHaveText(`Solitaire — Deal #${replay.seed}`);
     await page.locator('.sol-quick-actions .sol-finish').click();
-    await expect(page.locator('.sol-win')).toBeVisible();
-    await expect(page.locator('.sol-win')).toContainText(`You won deal #${replay.seed}`);
+    // One result screen: the page's win dialog, not a second panel inside the game window.
+    await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible();
+    await expect(page.locator('#dialog')).toContainText(`Deal #${replay.seed}`);
+    await expect(page.locator('.sol-win')).toBeHidden();
+    await expect(page.locator('.sol-message')).toContainText(`You won deal #${replay.seed}`);
+    await expect(page.locator('.share-preview')).toContainText(`deal=${replay.seed}&draw=1`);
     for (const slot of [0, 1, 2, 3]) await expect(pileCards(page, `h${slot}`)).toHaveCount(13);
     await expect(page.locator('#dialog[open]')).toBeVisible();
     await expect(page.locator('#dialog')).toContainText('Solitaire');
@@ -492,14 +496,15 @@ try {
       // Undo the final card, then play it by double-click so the real UI wins.
       replay.actions.push({ type: 'undo' });
       await live.goto(`${baseURL}/solitaire#replay=${Buffer.from(JSON.stringify(replay)).toString('base64')}`);
-      await expect(live.locator('.sol-message')).toContainText('Replay loaded');
+      await expect(live.locator('#toast')).toContainText('Replay loaded');
       const last = live.locator('[data-pile-id^="t"] .ct-card, [data-pile-id="w"] .ct-card').last();
       await last.dblclick();
       await expect(live.locator('.ct-cascade')).toBeAttached();
       await live.waitForTimeout(700);
       await live.screenshot({ path: join(screenshots, 'solitaire-cascade.png') });
       await live.keyboard.press('Escape');
-      await expect(live.locator('.sol-win')).toBeVisible();
+      await expect(live.locator('#dialog.dialog-win[open]')).toBeVisible();
+      await expect(live.locator('.sol-win')).toBeHidden();
     } finally { await motion.close(); }
   });
   await check('Solitaire fits a 320px phone and plays by touch', async () => {
@@ -596,7 +601,7 @@ try {
     }
     assert.ok(model.state().columns.some((column) => !column.length), 'The test deal reaches an empty column.');
     await page.goto(spiderLink(spiderPath.slice(0, index)));
-    await expect(page.locator('.sp-message')).toContainText('Replay loaded');
+    await expect(page.locator('#toast')).toContainText('Replay loaded');
     const stock = model.state().stock;
     await expect(pileCards(page, 's')).toHaveCount(stock);
     await pileCards(page, 's').last().click();
@@ -609,7 +614,7 @@ try {
     for (; index < spiderPath.length; index++) if ((await spiderAt(index + 1)).state().completed.length) break;
     const model = await spiderAt(index);
     await page.goto(spiderLink(spiderPath.slice(0, index)));
-    await expect(page.locator('.sp-message')).toContainText('Replay loaded');
+    await expect(page.locator('#toast')).toContainText('Replay loaded');
     await expect(pileCards(page, 'r0')).toHaveCount(0);
     await playSpiderAction(page, model, spiderPath[index]);
     await expect(pileCards(page, 'r0')).toHaveCount(13);
@@ -628,15 +633,26 @@ try {
     await page.keyboard.press('m');
     const model = await createSpider({ seed: 7, suits: 1 });
     if (model.hints().length > 1) await expect(page.locator('.sp-message')).not.toHaveText(first);
+    // M belongs to Spider here: the page leaves sound alone and stops advertising M for it.
+    const sound = page.locator('.chrome [data-command="sound"]');
+    await expect(sound).toHaveAttribute('aria-pressed', 'false');
+    await expect(sound).toHaveAttribute('data-tip', 'Sound');
+    await page.locator('.chrome [data-command="keys"]').click();
+    await expect(page.locator('#dialog.dialog-keys[open]')).toBeVisible();
+    await expect(page.locator('.key-list dd', { hasText: 'Sound on or off' })).toHaveCount(0);
+    await expect(page.locator('.key-list kbd', { hasText: /^M$/ })).toHaveCount(1);
+    await page.keyboard.press('Escape');
   });
   await check('Spider reaches the win with reduced motion and reports it', async () => {
     const model = await spiderAt(spiderPath.length - 1);
     await page.goto(spiderLink(spiderPath.slice(0, -1)));
-    await expect(page.locator('.sp-message')).toContainText('Replay loaded');
+    await expect(page.locator('#toast')).toContainText('Replay loaded');
     await expect(page.locator('.sp-status-progress')).toContainText('7 of 8 runs');
     await playSpiderAction(page, model, spiderPath.at(-1));
-    await expect(page.locator('.sp-win')).toBeVisible();
-    await expect(page.locator('.sp-win')).toContainText('You won deal #2');
+    await expect(page.locator('#dialog.dialog-win[open]')).toBeVisible();
+    await expect(page.locator('.sp-win')).toBeHidden();
+    await expect(page.locator('.sp-message')).toContainText('You won deal #2');
+    await expect(page.locator('.share-preview')).toContainText(/deal=2&suits=\d/);
     for (let run = 0; run < 8; run++) await expect(pileCards(page, `r${run}`)).toHaveCount(13);
     await expect(page.locator('#dialog[open]')).toBeVisible();
     await expect(page.locator('#dialog')).toContainText('Spider Solitaire');
@@ -649,13 +665,14 @@ try {
       live.on('pageerror', (error) => browserErrors.push(error.message));
       const model = await spiderAt(spiderPath.length - 1);
       await live.goto(spiderLink(spiderPath.slice(0, -1)));
-      await expect(live.locator('.sp-message')).toContainText('Replay loaded');
+      await expect(live.locator('#toast')).toContainText('Replay loaded');
       await playSpiderAction(live, model, spiderPath.at(-1));
       await expect(live.locator('.ct-cascade')).toBeAttached();
       await live.waitForTimeout(900);
       await live.screenshot({ path: join(screenshots, 'spider-cascade.png') });
       await live.keyboard.press('Escape');
-      await expect(live.locator('.sp-win')).toBeVisible();
+      await expect(live.locator('#dialog.dialog-win[open]')).toBeVisible();
+      await expect(live.locator('.sp-win')).toBeHidden();
     } finally { await motion.close(); }
   });
   await check('Spider fits a 320px phone and plays by touch', async () => {

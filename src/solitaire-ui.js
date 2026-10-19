@@ -380,12 +380,18 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     if (destroyed || engine.state().status !== 'won') return;
     await table.cascade({ piles: FOUNDATIONS });
     if (destroyed || engine.state().status !== 'won') return;
+    const summary = {
+      game: 'solitaire', seed: state.seed, deal: state.seed, daily, elapsedSeconds: seconds, moves: state.moves, score: final, bonus,
+      draw: state.draw, scoring: state.scoring, variant: `draw ${state.draw === 3 ? 'three' : 'one'}`, params: { deal: state.seed, draw: state.draw },
+    };
+    announce(`You won deal #${state.seed} in ${plural(state.moves, 'move')}.`);
+    // In the site shell the win dialog is the one result screen.
+    if (chrome) { onWin(summary); return; }
     const scoreLine = final === null ? '' : state.scoring === 'vegas' ? ` · ${money(final)}` : ` · ${final.toLocaleString('en')} points`;
     winEl.innerHTML = `<span class="sol-win-kicker">${daily ? 'Today’s deal, done.' : 'Every card is home.'}</span><strong>You won deal #${state.seed}.</strong><p>${plural(state.moves, 'move')} · ${clock(seconds)}${scoreLine}${bonus ? `<br>Includes a time bonus of ${bonus.toLocaleString('en')}.` : ''}</p><div class="sol-win-actions"><button type="button" class="sol-classic-button sol-default-button" data-action="new">Deal again</button><button type="button" class="sol-text-button" data-action="same">Replay this deal</button></div>`;
     winEl.hidden = false;
     winEl.querySelector('[data-action="new"]').focus({ preventScroll: true });
-    announce(`You won deal #${state.seed} in ${plural(state.moves, 'move')}.`);
-    onWin({ game: 'solitaire', seed: state.seed, deal: state.seed, daily, elapsedSeconds: seconds, moves: state.moves, score: final, bonus, draw: state.draw, scoring: state.scoring });
+    onWin(summary);
   }
 
   async function newGame(deal = null, { keepDaily = false } = {}) {
@@ -567,7 +573,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
       wonReported = false;
       winEl.hidden = true;
       bankStart = 0;
-      announce('Replay loaded. Pick up where this deal left off.');
+      announce(chrome ? '' : 'Replay loaded. Pick up where this deal left off.');
       await update(false);
       if (state.status === 'won') celebrate(Promise.resolve());
     },

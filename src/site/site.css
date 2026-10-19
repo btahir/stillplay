@@ -380,6 +380,8 @@ dialog::backdrop { background: #141c1599; animation: fade-in .2s ease-out; }
 .dialog-win .dialog-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .dialog-win .dialog-actions .button-primary { grid-column: 1 / -1; min-height: 44px; }
 .dialog-win .dialog-actions .button { padding: 0 10px; }
+.dialog-win .dialog-actions:has(.win-again) .button-primary { grid-column: span 2; }
+.dialog-win .dialog-actions .win-again { min-height: 44px; }
 .dialog-note { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; font-size: 13px; color: var(--muted); }
 .dialog-note svg { color: var(--green); }
 .resource-preview { max-width: 100%; max-height: 220px; image-rendering: pixelated; }
@@ -567,6 +569,7 @@ main { view-transition-name: page; }
   .site-footer { grid-template-columns: minmax(0, 1fr); }
   .win-time { font-size: 60px; }
   .dialog-win .dialog-actions { grid-template-columns: minmax(0, 1fr); }
+  .dialog-win .dialog-actions:has(.win-again) .button-primary { grid-column: auto; }
   .stat-row dd { font-size: 22px; }
   .stat-streaks div { grid-template-columns: minmax(0, 1fr); padding: 12px; }
   .stat-streaks svg { display: none; }
