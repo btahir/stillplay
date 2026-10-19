@@ -30,9 +30,9 @@ export const games = [
     mount: () => import('./solitaire-ui.js').then((m) => m.mountSolitaire),
   },
   {
-    id: 'spider', title: 'Spider Solitaire', path: '/spider', icon: 'spider', status: 'planned',
+    id: 'spider', title: 'Spider Solitaire', path: '/spider', icon: 'spider', status: 'playable',
     tagline: 'One suit, two suits, or all four.',
-    mount: null,
+    mount: () => import('./spider-ui.js').then((m) => m.mountSpider),
   },
   {
     id: 'hearts', title: 'Hearts', path: '/hearts', icon: 'hearts', status: 'planned',
