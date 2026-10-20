@@ -1,7 +1,6 @@
 /**
  * Home: play first. The hero boots straight into a playable game (no splash), with a
- * switcher across every playable game. Below: today's dailies, the collection, secrets,
- * and, last and quietest, the reconstruction story and the local .exe inspector.
+ * switcher across every playable game. Below: today's dailies, the collection and secrets.
  */
 import { siteGames, playable, findGame } from '../registry.js';
 import { mountStage } from '../play/stage.js';
@@ -68,8 +67,6 @@ function whenNear(element, task, signal) {
   signal.addEventListener('abort', () => observer.disconnect());
 }
 
-const statusLabel = (record) => ({ 'awaiting-original': 'Awaiting original', 'partial-inventory': 'Partial inventory', matched: 'Byte-matched', 'matching-in-progress': 'Matching in progress' })[record.status] || 'Verification pending';
-
 export function render(main) {
   const controller = new AbortController();
   const { signal } = controller;
@@ -116,31 +113,6 @@ export function render(main) {
       <a class="text-link" href="/secrets">All the secrets ${icon('arrow', { size: 12 })}</a>
     </div>
     <div class="secrets-grid" data-secrets></div>
-  </section>
-
-  <section class="proof wrap" aria-labelledby="proof-heading">
-    <div class="proof-copy">
-      <p class="section-kicker">Rebuilt in the open</p>
-      <h2 id="proof-heading">A working game is a start. Proof takes longer.</h2>
-      <p>The long-term goal is to rebuild each game function by function and compare it, byte for byte, with the original. That comparison has not started yet, so the numbers stay blank until there is something real to count.</p>
-      <a class="text-link" href="/scoreboard">See where things stand ${icon('arrow', { size: 12 })}</a>
-    </div>
-    <div class="proof-instrument" data-proof>
-      <div class="instrument-label"><span>Byte-match verification</span><span>Wave 01</span></div>
-      ${games.map((game) => `<div class="instrument-row" data-record="${game.id}"><strong>${escape(game.title)}</strong><span>Awaiting original</span><span class="unknown">—</span></div>`).join('')}
-    </div>
-  </section>
-
-  <section class="copy-section wrap" id="your-copy" aria-labelledby="copy-heading">
-    <div>
-      <p class="section-kicker">Bring a little history</p>
-      <h2 id="copy-heading">Still have your old copy?</h2>
-      <p>Open a game’s original .exe to look at its bitmaps. The file is read in this tab and never leaves your device. Turning those bitmaps into an original skin is still being checked.</p>
-    </div>
-    <div>
-      <button type="button" class="drop-zone" id="drop-zone">${icon('upload', { size: 22 })}<strong>Drop a game .exe here, or browse</strong><small>Read in your browser. Never uploaded.</small></button>
-      <input id="exe-input" type="file" accept=".exe" hidden>
-    </div>
   </section>`;
 
   const panel = main.querySelector('#hero-panel');
@@ -205,26 +177,6 @@ export function render(main) {
       main.querySelector('[data-secrets]').innerHTML = secrets.slice(0, 3).map(secretCard).join('');
     }).catch(() => {});
   }, signal);
-  whenNear(main.querySelector('[data-proof]'), () => {
-    Promise.all(games.map((game) => (game.scoreboard ? fetch(`/scoreboard/${game.id}.json`) : Promise.resolve({ ok: false })).then((response) => (response.ok ? response.json() : null)).catch(() => null)))
-      .then((records) => {
-        records.forEach((record, index) => {
-          const row = main.querySelector(`[data-record="${games[index].id}"]`);
-          if (!row || !record) return;
-          row.children[1].textContent = statusLabel(record);
-          row.children[2].textContent = record.matchPercent === null || record.matchPercent === undefined ? '—' : `${record.matchPercent}%`;
-        });
-      });
-  }, signal);
-
-  const zone = main.querySelector('#drop-zone');
-  const input = main.querySelector('#exe-input');
-  const inspect = (file) => import('../inspector.js').then(({ inspectFile }) => inspectFile(file, zone)).catch(console.error);
-  zone.addEventListener('click', () => input.click(), { signal });
-  input.addEventListener('change', () => { inspect(input.files[0]); input.value = ''; }, { signal });
-  zone.addEventListener('dragover', (event) => { event.preventDefault(); zone.classList.add('drag-over'); }, { signal });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'), { signal });
-  zone.addEventListener('drop', (event) => { event.preventDefault(); zone.classList.remove('drag-over'); inspect(event.dataTransfer.files[0]); }, { signal });
 
   return () => {
     controller.abort();

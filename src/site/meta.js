@@ -20,14 +20,9 @@ const fixed = {
     description: 'One shared board and one shared deal each day, the same for everyone. Keep your streak going.',
     og: { kicker: 'Daily challenge', heading: 'Same game.', accent: 'Everyone, today.', art: 'daily' },
   },
-  '/scoreboard': {
-    title: `The reconstruction${suffix}`,
-    description: 'Where the reconstruction stands, game by game. Honest function counts, byte counts and evidence, with unknowns left blank.',
-    og: { kicker: 'Rebuilt in the open', heading: 'The code', accent: 'keeps score.', art: 'scoreboard' },
-  },
   '/about': {
     title: `About${suffix}`,
-    description: 'Why Stillplay exists, how the games are built, and what we can and cannot yet prove about them.',
+    description: 'Why Stillplay exists, how the games are made, and where they run: a small homage to the games that came with Windows XP.',
     og: { kicker: 'About the project', heading: 'Some things are', accent: 'worth keeping.', art: 'home' },
   },
   '/secrets': {
@@ -97,7 +92,6 @@ export function allPaths({ secrets = [] } = {}) {
     ...games.filter((game) => !game.playable && game.routable).map((game) => game.path),
     '/secrets',
     ...secrets.map((secret) => `/secrets/${secret.slug}`),
-    '/scoreboard',
     '/about',
   ];
 }

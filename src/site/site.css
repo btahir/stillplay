@@ -229,7 +229,7 @@ main:focus { outline: none; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; margin-bottom: 28px; }
 .section-heading h2 { margin: 0; }
 .section-aside { max-width: 380px; margin: 0; font-size: 14px; color: var(--muted); }
-.dailies, .collection, .secrets-teaser, .proof, .copy-section { padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
+.dailies, .collection, .secrets-teaser { padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
 .dailies { border-top: 0; padding-top: 8px; }
 .daily-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .daily-card { display: flex; align-items: center; gap: 16px; padding: 18px 20px; border: 1px solid var(--line); background: var(--white); border-radius: var(--radius); transition: border-color .2s, transform .25s var(--ease), box-shadow .25s; }
@@ -272,7 +272,7 @@ main:focus { outline: none; }
 .game-card.is-future .game-card-art .mini { opacity: .78; filter: saturate(.7); }
 .game-card.is-future h3 { color: var(--ink-2); }
 
-/* ---- home: secrets, proof, your copy -------------------------------------- */
+/* ---- home: secrets --------------------------------------------------------- */
 
 .secrets-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; min-height: 120px; }
 .secret-link { display: block; }
@@ -284,26 +284,6 @@ main:focus { outline: none; }
 .secret-link h3 { font-size: 23px; line-height: 1.25; letter-spacing: -.015em; margin-bottom: 8px; max-width: 320px; }
 .secret-link:hover h3 { color: var(--green); }
 .secret-link p { font-size: 14px; line-height: 1.65; color: var(--muted); margin: 0; }
-
-.proof, .proof-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
-.proof-copy h2 { margin: 0 0 16px; font-size: clamp(26px, 2.6vw, 32px); max-width: 440px; }
-.proof-copy p { max-width: 440px; font-size: 15px; line-height: 1.75; color: var(--muted); }
-.proof-instrument { padding: 24px 26px; background: var(--white); border: 1px solid var(--line); }
-.instrument-label { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
-.instrument-row { display: grid; grid-template-columns: 1fr auto 52px; gap: 16px; align-items: center; border-top: 1px solid var(--line); padding: 14px 0; }
-.instrument-row strong { font-size: 15px; font-weight: 500; }
-.instrument-row span { font-size: 13px; color: var(--muted); }
-.instrument-row .unknown { font-family: var(--serif); font-size: 26px; color: var(--ink); text-align: right; }
-.instrument-foot { font-size: 13px; line-height: 1.7; color: var(--muted); margin: 8px 0 0; }
-
-.copy-section { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
-.copy-section h2 { font-size: clamp(26px, 2.6vw, 32px); margin-bottom: 14px; }
-.copy-section p { font-size: 15px; color: var(--muted); line-height: 1.75; max-width: 420px; }
-.drop-zone { width: 100%; min-height: 156px; padding: 28px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: transparent; color: var(--ink); text-align: center; transition: background .2s, border-color .2s; }
-.drop-zone:hover, .drop-zone.drag-over { background: var(--pale); border-color: var(--green); }
-.drop-zone svg { color: var(--green); }
-.drop-zone strong { font-size: 15px; font-weight: 500; }
-.drop-zone small { font-size: 13px; color: var(--muted); }
 
 /* ---- other pages ------------------------------------------------------------- */
 
@@ -350,28 +330,6 @@ main:focus { outline: none; }
 .secrets-index .secret-art { height: 230px; }
 .secrets-index .secret-art svg { width: 270px; height: 168px; }
 
-.scoreboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin-bottom: 24px; }
-.score-card { border: 1px solid var(--line); padding: 30px; background: var(--white); }
-.score-card header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 30px; }
-.score-card h2 { font-family: var(--sans); font-size: 19px; font-weight: 500; letter-spacing: -.01em; margin: 0; }
-.score-card .status { font-size: 12px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.big-match { font-family: var(--serif); font-size: 84px; line-height: 1; letter-spacing: -.04em; }
-.big-match small { display: block; margin-top: 12px; font-family: var(--sans); font-size: 13px; letter-spacing: 0; color: var(--muted); }
-.score-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border-top: 1px solid var(--line); margin-top: 28px; padding-top: 20px; }
-.score-stats strong { display: block; margin-bottom: 4px; font-size: 18px; font-weight: 400; }
-.score-stats span { font-size: 13px; color: var(--muted); }
-.score-card > p { font-size: 14px; line-height: 1.75; color: var(--muted); margin: 22px 0 0; }
-.score-card details { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 14px; }
-.score-card summary { cursor: pointer; font-size: 14px; font-weight: 500; }
-.score-card details .text-link { margin-right: 18px; }
-.function-strip { display: flex; gap: 3px; height: 16px; margin-top: 14px; }
-.function-strip button { flex: 1; min-width: 5px; border: 0; padding: 0; background: var(--line); transition: background .15s; }
-.function-strip button.is-matched { background: var(--green); }
-.function-strip button:hover { background: var(--green); }
-.score-date { grid-column: 1 / -1; font-size: 13px; color: var(--muted); margin: 0; }
-.evidence-list .notice:first-child { margin-top: 0; }
-.section { padding-top: 56px; padding-bottom: 56px; border-top: 1px solid var(--line); }
-
 /* ---- dialog --------------------------------------------------------------- */
 
 dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100svh - 48px); padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); box-shadow: 0 24px 80px -20px #10180f66; overflow: auto; }
@@ -384,8 +342,6 @@ dialog::backdrop { background: #141c1599; animation: fade-in .2s ease-out; }
 #dialog-body { padding: 22px 24px 24px; font-size: 15px; line-height: 1.7; color: var(--ink-2); }
 #dialog-body > :last-child { margin-bottom: 0; }
 #dialog-body input, #dialog-body select { max-width: 100%; margin: 8px 0; padding: 9px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--white); color: var(--ink); }
-#dialog-body .field { display: block; font-size: 14px; }
-#dialog-body .hash { font-size: 12px; overflow-wrap: anywhere; color: var(--muted); }
 /* Buttons that games put in plain dialogs */
 #dialog-body > button, #dialog-body p > button:not(.button) { min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--radius); background: var(--green); color: var(--paper); font-size: 14px; }
 .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
@@ -396,7 +352,6 @@ dialog::backdrop { background: #141c1599; animation: fade-in .2s ease-out; }
 .dialog-win .dialog-actions .win-again { min-height: 44px; }
 .dialog-note { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; font-size: 13px; color: var(--muted); }
 .dialog-note svg { color: var(--green); }
-.resource-preview { max-width: 100%; max-height: 220px; image-rendering: pixelated; }
 
 .win-hero { text-align: center; padding: 6px 0 20px; }
 .win-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--green); }
@@ -536,7 +491,6 @@ main { view-transition-name: page; }
   .daily-list:has(> :nth-child(5):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .daily-list:has(> :nth-child(5):last-child) > * { grid-column: span 1; }
   .daily-list:has(> :nth-child(5):last-child) > :first-child { grid-column: 1 / -1; }
-  .proof, .proof-grid, .copy-section { gap: 40px; }
 }
 
 @media (max-width: 760px) {
@@ -568,7 +522,7 @@ main { view-transition-name: page; }
   .play-area .stage-surface, .play-area[data-game-stage] .stage-surface { min-height: 420px; padding-top: 16px; padding-bottom: 24px; }
   .play-notes { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 36px; }
   .replay-tools { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 28px; }
-  .dailies, .collection, .secrets-teaser, .proof, .copy-section { padding-top: 40px; padding-bottom: 40px; }
+  .dailies, .collection, .secrets-teaser { padding-top: 40px; padding-bottom: 40px; }
   .dailies { padding-top: 0; }
   .daily-list, .daily-list:has(> :nth-child(5):last-child) { grid-template-columns: minmax(0, 1fr); }
   .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 14px; }
@@ -576,10 +530,7 @@ main { view-transition-name: page; }
   .game-card-tagline { font-size: 13px; }
   .secrets-grid, .secrets-index .secrets-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .secret-art { height: 150px; }
-  .proof, .proof-grid, .copy-section, .soon { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .scoreboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .score-card { padding: 22px; }
-  .big-match { font-size: 64px; }
+  .soon { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .article { padding-top: 28px; }
   .article p:not(.eyebrow, .lede, .source-note), .article li { font-size: 15px; }
   .daily-row { grid-template-columns: 36px minmax(0, 1fr); gap: 8px 16px; }

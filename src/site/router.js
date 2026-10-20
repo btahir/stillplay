@@ -14,7 +14,6 @@ const lazy = {
   home: () => import('./pages/home.js'),
   game: () => import('./pages/game.js'),
   daily: () => import('./pages/daily.js'),
-  scoreboard: () => import('./pages/scoreboard.js'),
   about: () => import('./pages/about.js'),
   secrets: () => import('./pages/secrets.js'),
   soon: () => import('./pages/coming-soon.js'),
@@ -34,7 +33,6 @@ export function match(pathname) {
     const dailyGame = games.find((item) => item.id === daily[1] && item.playable);
     if (dailyGame) return { name: 'game', load: lazy.game, params: { game: dailyGame, daily: true } };
   }
-  if (path === '/scoreboard') return { name: 'scoreboard', load: lazy.scoreboard, params: {} };
   if (path === '/about') return { name: 'about', load: lazy.about, params: {} };
   if (path === '/secrets') return { name: 'secrets', load: lazy.secrets, params: {} };
   const secret = path.match(/^\/secrets\/([\w-]+)$/);

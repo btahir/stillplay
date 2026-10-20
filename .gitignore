@@ -8,13 +8,6 @@ PLAN.md
 notes/
 docs/launch/
 launch/
-LEGAL-NOTES.md
-*.exe
-*.dll
-*.dat
-*.DAT
-*.iso
-originals/
 .env*
 !.env.example
 *.log

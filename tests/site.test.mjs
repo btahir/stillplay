@@ -27,6 +27,8 @@ test('every page has a title, a description and Open Graph copy', async () => {
   const { secrets } = await import('../src/secrets.js');
   const paths = allPaths({ secrets });
   assert.equal(new Set(paths).size, paths.length, 'paths are unique');
+  const fixedPages = paths.filter((path) => !/^\/(daily|secrets)\/./.test(path) && !siteGames().some((game) => game.path === path));
+  assert.deepEqual(fixedPages, ['/', '/daily', '/secrets', '/about']);
   for (const path of paths) {
     const meta = pageMeta(path, { secrets });
     assert.ok(meta, path);
@@ -113,6 +115,7 @@ test('routes resolve from the registry', { skip: !match && 'router needs a DOM' 
     assert.equal(match(`/daily/${game.id}`).params.daily, true);
   }
   assert.equal(match('/daily').name, 'daily');
+  assert.equal(match('/about').name, 'about');
   assert.equal(match('/secrets/xyzzy').params.slug, 'xyzzy');
   assert.equal(match('/missing').name, 'not-found');
   assert.equal(match('/freecell/').name, 'game');

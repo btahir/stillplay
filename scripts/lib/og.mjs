@@ -10,11 +10,6 @@ const escape = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&
 
 const MARK = '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><path d="M2 2h12v12H2zM18 2h12v12H18zM2 18h12v12H2z" fill="currentColor"/><path d="M19 19h10v10H19z" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 
-function scoreboardArt() {
-  const bars = Array.from({ length: 22 }, (_, index) => `<rect x="${20 + index * 19}" y="40" width="14" height="70" fill="${index % 7 === 3 ? '#2c6249' : '#dcded3'}"/>`).join('');
-  return `<svg viewBox="0 0 460 150" class="mini"><text x="20" y="30" font-family="Georgia, serif" font-size="22" fill="#282e29">— %</text>${bars}<text x="20" y="138" font-family="Grotesk, sans-serif" font-size="13" fill="#62695e">Unknowns stay blank.</text></svg>`;
-}
-
 export function ogHtml(meta, { css, root, art }) {
   const fonts = pathToFileURL(join(root, 'public/fonts')).href;
   const { kicker = '', heading = '', accent = '' } = meta.og || {};
@@ -40,6 +35,6 @@ html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; backgrou
   <h1>${escape(heading)}${accent ? `<em>${escape(accent)}</em>` : ''}</h1>
   <p class="og-foot">Free to play in your browser. No installs, no accounts.</p>
 </div>
-<div class="og-art${art.secret ? ' is-secret' : ''}">${art.svg === 'scoreboard' ? scoreboardArt() : art.svg}</div>
+<div class="og-art${art.secret ? ' is-secret' : ''}">${art.svg}</div>
 </div></body></html>`;
 }

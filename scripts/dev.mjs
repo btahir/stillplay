@@ -11,7 +11,7 @@ const port = Number(portIndex >= 0 ? args[portIndex + 1] : process.env.PORT || 4
 const hostIndex = args.indexOf('--host');
 const host = hostIndex >= 0 ? args[hostIndex + 1] : '127.0.0.1';
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.wasm': 'application/wasm', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.c': 'text/plain; charset=utf-8', '.mp4': 'video/mp4', '.webm': 'audio/webm', '.m4a': 'audio/mp4', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml; charset=utf-8' };
-const sourcePrefixes = ['src/', 'cores/', 'scoreboard/'];
+const sourcePrefixes = ['src/', 'cores/'];
 
 /**
  * A small static server. Development serves the project (public/ files at the root);

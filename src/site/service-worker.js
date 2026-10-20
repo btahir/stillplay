@@ -4,7 +4,6 @@
  *
  *   HTML pages      network first, falling back to the cached page or the app shell
  *   static assets   cache first (they are versioned by the build hash)
- *   scoreboard JSON network first
  * Old caches are deleted when a new build activates.
  */
 const BUILD = '__STILLPLAY_BUILD__';
@@ -55,26 +54,12 @@ async function cacheFirst(request) {
   return response;
 }
 
-async function networkFirst(request) {
-  const cache = await caches.open(STATIC_CACHE);
-  try {
-    const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
-    return response;
-  } catch {
-    const hit = await cache.match(request);
-    if (hit) return hit;
-    throw new Error('offline');
-  }
-}
-
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (request.mode === 'navigate') { event.respondWith(networkFirstPage(request)); return; }
-  if (url.pathname.startsWith('/scoreboard/')) { event.respondWith(networkFirst(request)); return; }
   if (/^\/(src|cores|fonts|icons)\//.test(url.pathname) || /\.(js|css|wasm|woff2|png|svg|webmanifest)$/.test(url.pathname)) {
     event.respondWith(cacheFirst(request));
   }

@@ -303,9 +303,7 @@ try {
     const playable = await page.evaluate(async () => (await import('/src/games.js')).games.filter((game) => typeof game.mount === 'function').length);
     await expect(page.locator('.daily-row')).toHaveCount(playable);
     await page.goto(`${baseURL}/about`);
-    await expect(page.locator('.article')).toContainText('Not affiliated with or endorsed by Microsoft');
-    await page.goto(`${baseURL}/scoreboard`);
-    await expect(page.locator('.score-card').first()).toBeVisible();
+    await expect(page.locator('.article')).toContainText('not affiliated with or endorsed by Microsoft');
     await page.goto(`${baseURL}/nowhere-at-all`);
     await expect(page.locator('main h1')).toHaveText('Nothing hiding here.');
     const soon = await page.evaluate(async () => (await import('/src/games.js')).games.find((game) => !game.mount && game.path)?.path ?? null);
@@ -983,7 +981,7 @@ try {
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.evaluate(() => localStorage.setItem('stillplay-theme', 'light'));
-    for (const [name, route] of Object.entries({ home: '/', freecell: '/freecell', daily: '/daily', about: '/about', scoreboard: '/scoreboard', secret: '/secrets/first-click' })) {
+    for (const [name, route] of Object.entries({ home: '/', freecell: '/freecell', daily: '/daily', about: '/about', secret: '/secrets/first-click' })) {
       await page.goto(`${baseURL}${route}`);
       if (name === 'home') await expect(page.locator('[data-cell]').first()).toBeAttached();
       if (name === 'secret') await expect(page.locator('[data-board-diagram] svg')).toBeAttached();
@@ -991,9 +989,6 @@ try {
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: join(screenshots, `${name}.png`), animations: 'disabled' });
     }
-    await page.goto(`${baseURL}/#your-copy`);
-    await page.locator('.drop-zone').scrollIntoViewIfNeeded();
-    await page.screenshot({ path: join(screenshots, 'resources.png'), animations: 'disabled' });
     await page.setViewportSize({ width: 320, height: 740 });
     await page.goto(`${baseURL}/?seed=42`);
     await expect(page.locator('[data-cell]')).toHaveCount(81);

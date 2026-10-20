@@ -46,24 +46,16 @@ if (!args.includes('--no-cores')) {
     if (result.status !== 0) throw new Error(`${game} compilation failed.`);
   }
 }
-const verify = spawnSync(process.execPath, [join(root, 'scripts/verify-scoreboard.mjs')], { stdio: 'inherit' });
-if (verify.status !== 0) throw new Error('Scoreboard evidence checks failed.');
 
 // ---- 2. copy -------------------------------------------------------------------
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const name of ['index.html', 'src', 'cores', 'scoreboard']) await cp(join(root, name), join(dist, name), { recursive: true });
+for (const name of ['index.html', 'src', 'cores']) await cp(join(root, name), join(dist, name), { recursive: true });
 if (existsSync(join(root, 'public'))) await cp(join(root, 'public'), dist, { recursive: true });
 await rm(join(dist, 'src/site/service-worker.js'), { force: true });
 
 const commitResult = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root, encoding: 'utf8' });
 const buildCommit = commitResult.status === 0 && /^[a-f0-9]{40}$/.test(commitResult.stdout.trim()) ? commitResult.stdout.trim() : null;
-for (const game of (await readdir(join(dist, 'scoreboard'))).filter((name) => name.endsWith('.json')).map((name) => name.slice(0, -5))) {
-  const path = join(dist, 'scoreboard', `${game}.json`);
-  const data = JSON.parse(await readFile(path, 'utf8'));
-  data.buildCommit = buildCommit;
-  await writeFile(path, JSON.stringify(data, null, 2) + '\n');
-}
 
 async function walk(directory) {
   const files = [];
@@ -81,7 +73,6 @@ const offline = (await walk(dist)).map((path) => `/${relative(dist, path).split(
   || /^\/cores\/[\w-]+\.wasm$/.test(path)
   || /^\/fonts\/space-grotesk-latin-[45]00-normal\.woff2$/.test(path)
   || path.startsWith('/icons/')
-  || path.startsWith('/scoreboard/')
   || ['/favicon.svg', '/manifest.webmanifest'].includes(path)
 )).sort();
 const hash = createHash('sha256');
@@ -106,7 +97,6 @@ const ogName = (path) => (path === '/' ? 'home' : path.slice(1).replaceAll('/', 
 const firstPlayable = siteGames().find((game) => game.playable);
 function artFor(meta) {
   const key = meta.og?.art;
-  if (key === 'scoreboard') return { svg: 'scoreboard' };
   if (key === 'secrets') return { svg: secrets[0].art, secret: true };
   if (key === 'home' || key === 'daily') return { svg: drawMini(key === 'daily' ? 'minesweeper' : firstPlayable?.id || 'minesweeper') };
   return { svg: drawMini(key) };
@@ -145,7 +135,7 @@ async function directImports(file) {
   return [...source.matchAll(/^\s*(?:import|export)\s+(?:[^'"]*?\sfrom\s+)?['"](\.{1,2}\/[^'"]+)['"]/gm)].map((found) => join(dirname(file), found[1]));
 }
 
-const PAGE_MODULES = { home: 'pages/home.js', game: 'pages/game.js', daily: 'pages/daily.js', scoreboard: 'pages/scoreboard.js', about: 'pages/about.js', secrets: 'pages/secrets.js', secret: 'pages/secrets.js', soon: 'pages/coming-soon.js', 'not-found': 'pages/not-found.js' };
+const PAGE_MODULES = { home: 'pages/home.js', game: 'pages/game.js', daily: 'pages/daily.js', about: 'pages/about.js', secrets: 'pages/secrets.js', secret: 'pages/secrets.js', soon: 'pages/coming-soon.js', 'not-found': 'pages/not-found.js' };
 
 /**
  * The modules a route needs first, so the browser fetches them in parallel instead of

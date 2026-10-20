@@ -33,7 +33,7 @@ export function render(main, { game, daily }) {
     <div class="howto">
       <p class="section-kicker">How to play</p>
       ${game.howTo.map((paragraph) => `<p>${escape(paragraph)}</p>`).join('')}
-      <p class="howto-small">Press <kbd>?</kbd> for keyboard shortcuts. The rules run on our own C code, compiled to WebAssembly; the same module powers the browser and the command line. Matching the original program is a separate job, and <a class="text-link" href="/scoreboard">it is tracked in the open</a>.</p>
+      <p class="howto-small">Press <kbd>?</kbd> for keyboard shortcuts. The rules run on our own C code, compiled to WebAssembly; the same module powers the browser and the command line.</p>
     </div>
     <aside class="replay-tools" aria-label="Replays">
       <p class="section-kicker">Replays</p>
