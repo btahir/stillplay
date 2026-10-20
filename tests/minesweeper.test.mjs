@@ -30,7 +30,7 @@ test('seed 1 follows the published MSVC rand stream with our documented placemen
   const game = await createMinesweeper({ seed: 1 });
   // First ten rand values: 41, 18467, 6334, 26500, 19169, 15724,
   // 11478, 29358, 26962, 24464. Each maps modulo 81, without collisions.
-  // This fixture verifies our RNG/placement contract, not an original game board.
+  // This fixture pins our RNG/placement contract.
   assert.deepEqual(game.state().cells.flatMap((cell, i) => cell.mine ? [i] : []),
     [2, 10, 13, 16, 36, 41, 53, 57, 70, 80]);
 });

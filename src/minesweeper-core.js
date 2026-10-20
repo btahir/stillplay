@@ -1,5 +1,4 @@
-// Original-authored rules, executed by the same WebAssembly in browser and Node.
-// This module deliberately makes no historical equivalence claim.
+// Our own Minesweeper rules, executed by the same WebAssembly in browser and Node.
 
 const LEVELS = ['beginner', 'intermediate', 'expert'];
 const STATUSES = ['ready', 'playing', 'won', 'lost'];

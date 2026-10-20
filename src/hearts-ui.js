@@ -204,8 +204,8 @@ function markup() {
   <div class="hz-dialog-actions"><button type="button" class="hz-classic-button hz-default-button" data-action="cancel-dialog">Got it</button></div>
 </div></dialog>
 <dialog class="hz-dialog" data-dialog="about" aria-labelledby="hz-about-title"><div class="hz-dialog-form">
-  <h2 id="hz-about-title">A familiar game, rebuilt</h2>
-  <p>This is our own Hearts, written in C and compiled to WebAssembly. Wren, Nell and Esme play fair: each one sees only its own cards and what has been played. It has not been compared with the original Windows program.</p>
+  <h2 id="hz-about-title">A familiar game, made fresh</h2>
+  <p>This is our own Hearts, written in C and compiled to WebAssembly. Wren, Nell and Esme play fair: each one sees only its own cards and what has been played.</p>
   <p>The cards, the table and the players are all drawn and named for this project.</p>
   <div class="hz-dialog-actions"><button type="button" class="hz-classic-button hz-default-button" data-action="cancel-dialog">Close</button></div>
 </div></dialog>`;

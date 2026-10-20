@@ -1,9 +1,8 @@
-/* Original-authored FreeCell rules. This is not a decompilation of Microsoft
- * software and has not been compared against an original executable.
+/* Stillplay's own FreeCell rules, written from scratch in C.
  *
  * Cards use suit-major IDs: clubs, diamonds, hearts, spades; rank=id%13+1.
  * Classic numbered deals use the documented 15-bit Microsoft CRT PRNG and
- * a rank-major CDHS deck. See docs/freecell-core.md for provenance and limits.
+ * a rank-major CDHS deck. See docs/freecell-core.md for details.
  */
 #include <stdint.h>
 
@@ -188,7 +187,7 @@ static int suggest(int from_kind, int from, int to_kind, int to, int count) {
 
 int fc_hint(int safe_only) {
     /* Foundation moves first, then useful tableau moves, then an empty cell.
-     * A hint is legal; it is not a proof that the deal remains solvable. */
+     * A hint is legal; it does not promise that the deal remains solvable. */
     for (int kind = COLUMN; kind <= FREECELL; ++kind) {
         for (int i = 0; i < (kind == COLUMN ? 8 : 4); ++i) {
             int card = top(kind, i);

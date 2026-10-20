@@ -158,8 +158,8 @@ function markup(daily, chrome) {
   <div class="sp-dialog-actions"><button type="button" class="sp-classic-button sp-default-button" data-action="cancel-dialog">Got it</button></div>
 </div></dialog>
 <dialog class="sp-dialog" data-dialog="about" aria-labelledby="sp-about-title"><div class="sp-dialog-form">
-  <h2 id="sp-about-title">A familiar game, rebuilt</h2>
-  <p>This is our own Spider Solitaire, written in C and compiled to WebAssembly, with the classic scoring: 500 to start, one point off for every move, 100 back for every finished run. It has not been compared with the original Windows program, and deal numbers are our own.</p>
+  <h2 id="sp-about-title">A familiar game, made fresh</h2>
+  <p>This is our own Spider Solitaire, written in C and compiled to WebAssembly, with the classic scoring: 500 to start, one point off for every move, 100 back for every finished run. Deal numbers are our own.</p>
   <p>The cards, the table and the bouncing ending are all drawn for this project.</p>
   <div class="sp-dialog-actions"><button type="button" class="sp-classic-button sp-default-button" data-action="cancel-dialog">Close</button></div>
 </div></dialog>`;

@@ -134,8 +134,8 @@ function markup(daily, chrome) {
   <div class="sol-dialog-actions"><button type="button" class="sol-classic-button sol-default-button" data-action="cancel-dialog">Got it</button></div>
 </div></dialog>
 <dialog class="sol-dialog" data-dialog="about" aria-labelledby="sol-about-title"><div class="sol-dialog-form">
-  <h2 id="sol-about-title">A familiar game, rebuilt</h2>
-  <p>This is our own Klondike, written in C and compiled to WebAssembly, with the scoring people remember: standard, Vegas and timed. It has not been compared with the original Windows program.</p>
+  <h2 id="sol-about-title">A familiar game, made fresh</h2>
+  <p>This is our own Klondike, written in C and compiled to WebAssembly, with the scoring people remember: standard, Vegas and timed.</p>
   <p>The cards, the table and the bouncing ending are all drawn for this project.</p>
   <div class="sol-dialog-actions"><button type="button" class="sol-classic-button sol-default-button" data-action="cancel-dialog">Close</button></div>
 </div></dialog>`;

@@ -1,5 +1,5 @@
 /**
- * Browser and Node adapter for the original-authored Hearts WASM core.
+ * Browser and Node adapter for our Hearts WASM core.
  *
  * Seats: 0 is you (south), 1 west, 2 north, 3 east; play runs 0 → 1 → 2 → 3.
  * Cards are the shared ids 0–51 from src/cards.js (aces high in play).

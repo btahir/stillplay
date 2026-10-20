@@ -1,9 +1,8 @@
 # Hearts core
 
-`cores/hearts.c` is original-authored rules and computer players, compiled to
-one freestanding WebAssembly module for the browser and Node
-(`src/hearts-core.js`). It is **not a decompilation** and has not been compared
-with an original executable. Deals come from our own seeded shuffle.
+`cores/hearts.c` is our own rules and computer players, written from scratch in C
+and compiled to one freestanding WebAssembly module for the browser and Node
+(`src/hearts-core.js`). Deals come from our own seeded shuffle.
 
 ## Rules implemented
 

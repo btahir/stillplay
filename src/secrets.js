@@ -1,6 +1,6 @@
 // Game cores load only when a secret's live demo needs them.
 
-// All illustrations are original SVG, authored for Stillplay.
+// All illustrations are our own SVG, drawn for Stillplay.
 const svg = (body) => `<svg viewBox="0 0 240 150" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
 const tile = (x, y, number = '') => `<g transform="translate(${x} ${y})"><path fill="#c9ccc3" d="M0 0h24v24H0z"/><path stroke="#f9faf2" stroke-width="2" d="M1 23V1h22"/><path stroke="#858d7f" stroke-width="2" d="M1 23h22V1"/>${number ? `<text x="12" y="17" text-anchor="middle" font-size="16" font-family="monospace" font-weight="bold" fill="#3b6187">${number}</text>` : ''}</g>`;
 const firstArt = svg(`<g transform="translate(44 20)">${Array.from({ length: 20 }, (_, i) => tile((i % 5) * 26, Math.floor(i / 5) * 26, [2, 7, 11].includes(i) ? '1' : '')).join('')}<circle cx="64" cy="64" r="5" fill="#354c39"/><path d="M64 64V18H116" stroke="#2c6249" stroke-width="2" stroke-dasharray="3 3"/><path d="m110 12 7 6-7 6" stroke="#2c6249" stroke-width="2"/><rect x="53" y="53" width="22" height="22" stroke="#2c6249" stroke-width="2"/></g>`);
@@ -19,13 +19,11 @@ export const secrets = [
     description: 'How a repeatable shuffle turns a deal into something you can share.', art: numberArt },
 ];
 
-const pending = '<div class="notice">Our implementation. Original-binary verification pending.</div>';
 const linkBack = '<p style="margin-top:42px"><a class="text-link" href="/secrets">All the little secrets <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" width="12" height="12" aria-hidden="true"><path d="M3 13 13 3M4 3h9v9"/></svg></a></p>';
 
 const articles = {
   'first-click': `
     <p class="lede">A first move should be an invitation. In our Minesweeper, even a click on a mine gets one.</p>
-    ${pending}
     <p>The board is already there before you touch it: 81 cells, ten mines, one deterministic seed. If the first cell you reveal contains a mine, our core moves that mine to the first empty cell in row order. Then it counts the neighboring mines again.</p>
     <p>You get a safe first cell. You do not get a guaranteed empty opening, or a guarantee that every later move can be solved without guessing.</p>
     <h2>Make the mine move.</h2>
@@ -52,16 +50,16 @@ for (int target = 0; target &lt; board_width * board_height; ++target) {
     }
 }
 count_neighbors();</code></pre>
-    <p class="source-note">Source: our original-authored <code>ms_reveal</code> function in <code>cores/minesweeper.c</code>. We test first-click safety, mine totals and neighbor counts across 3,000 seeds. An original Windows executable is still needed to compare its relocation policy with ours.</p>`,
+    <p class="source-note">Source: our <code>ms_reveal</code> function in <code>cores/minesweeper.c</code>. We test first-click safety, mine totals and neighbor counts across 3,000 seeds.</p>`,
   xyzzy: `
     <p class="lede">The smallest hint imaginable: a single pixel, quietly telling you what lay beneath the cursor.</p>
-    <div class="notice">Historical account, not a reconstruction finding. Our playable prototype does not include the XYZZY cheat.</div>
+    <div class="notice">A story from old cheat guides. Our Minesweeper does not include the XYZZY cheat.</div>
     <p>Old Minesweeper cheat guides describe typing <code>XYZZY</code>, followed by additional keys, to enable a tiny black-or-white indicator at the corner of the screen. The accounts differ on the final key sequence and which versions display the pixel.</p>
-    <p>That is an excellent reason to look at the executable before declaring the exact behavior. We have not done that verification yet. For now, the interesting idea is the mechanism: ordinary keyboard input can quietly change a hidden piece of state.</p>
+    <p>We are happy to leave the details to the old guides. The fun part is the mechanism: ordinary keyboard input can quietly change a hidden piece of state.</p>
     <h2>A tiny input latch.</h2>
     <p>Try typing <code>XYZZY</code> below, or use the five letter keys. This illustrative latch opens after those letters alone. Once it opens, switch the sample cell to see the enlarged indicator change.</p>
     <div class="demo" data-latch-demo>
-      <p style="font-size:9px;letter-spacing:1.4px;text-transform:uppercase">Illustrative mechanism · not original game code</p>
+      <p style="font-size:9px;letter-spacing:1.4px;text-transform:uppercase">Illustrative mechanism · not part of our game</p>
       <label for="latch-input">Type the five-letter word</label>
       <input id="latch-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" placeholder="Type here" style="width:200px;padding:12px;border:1px solid var(--line);background:var(--white);color:var(--ink);text-align:center;letter-spacing:5px">
       <div style="display:flex;gap:7px">${[...'XYZZY'].map((letter) => `<button data-latch-key="${letter}" aria-label="Type ${letter}" style="min-width:37px;padding:10px">${letter}</button>`).join('')}</div>
@@ -72,29 +70,28 @@ count_neighbors();</code></pre>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button data-sample-cell disabled>Sample cell: safe</button><button data-latch-reset>Reset latch</button></div>
       <p>The indicator is enlarged for this demo. It does not inspect your game.</p>
     </div>
-    <h2>What we still need to check.</h2>
-    <p>The exact input sequence, the internal state transitions, the pixel coordinates and the version-specific rendering behavior all belong in the verification work. An appealing story is a starting point; the original program is the evidence.</p>
-    <p class="source-note">Documentary reading: the <a href="https://www.digitpress.com/eastereggs/pcminesweeper.htm" target="_blank" rel="noopener noreferrer">Digital Press Minesweeper Easter egg account</a> and a <a href="https://gamefaqs.gamespot.com/pc/562694-minesweeper/faqs/26661" target="_blank" rel="noopener noreferrer">2003 Minesweeper FAQ</a>. These reports are historical references, not our executable-level verification.</p>`,
+    <h2>Why the story stuck.</h2>
+    <p>The guides never quite agreed on the keys, the corner or the versions. What they shared was the delight of a game keeping a secret in plain sight, one pixel wide, for anyone patient enough to type a strange word.</p>
+    <p class="source-note">Documentary reading: the <a href="https://www.digitpress.com/eastereggs/pcminesweeper.htm" target="_blank" rel="noopener noreferrer">Digital Press Minesweeper Easter egg account</a> and a <a href="https://gamefaqs.gamespot.com/pc/562694-minesweeper/faqs/26661" target="_blank" rel="noopener noreferrer">2003 Minesweeper FAQ</a>.</p>`,
   'deal-11982': `
     <p class="lede">Most deal numbers are a way to meet the same puzzle again. This one became a story people kept passing around.</p>
-    <div class="notice">Historical reputation, not a proof produced by this project. We have not run an exhaustive solver or compared this deal against an original executable.</div>
+    <div class="notice">A result from the FreeCell community, not from this project. We have not run an exhaustive solver on this deal.</div>
     <div class="demo" style="padding-top:45px;padding-bottom:45px">
       <div style="font-family:Georgia,serif;font-size:clamp(60px,15vw,100px);letter-spacing:-4px;color:var(--green);line-height:1">11982</div>
       <p style="letter-spacing:2px;text-transform:uppercase;font-size:9px">One number. A very long conversation.</p>
     </div>
     <h2>The deal that stayed behind.</h2>
     <p>Michael Keller's <a href="https://www.solitairelaboratory.com/fcfaq.html" target="_blank" rel="noopener noreferrer">FreeCell FAQ at Solitaire Laboratory</a> documents the effort to solve the original set of 32,000 numbered deals. It identifies #11982 as the exceptional unsolvable deal under the standard rules, after sustained human and computer searches.</p>
-    <p>That is a documented historical result. Repeating the number in our interface does not reproduce the proof, and reproducing its layout does not establish that every rule and move agrees with the historical program.</p>
+    <p>That is a documented historical result. Showing the number in our interface does not repeat the search behind it; that took solvers, spare machines and a lot of patience.</p>
     <h2>Why the rules matter.</h2>
     <p>Four free cells, eight columns, alternating colors. Change the available storage or the building rules and you change the puzzle. A solver's conclusion belongs to a precise starting layout and a precise set of legal moves.</p>
-    <p>Our prototype lets you explore the deal with undo and hints. It does not declare the position impossible, and a hint is a legal move suggestion rather than a promise of a solution.</p>
+    <p>Our FreeCell lets you explore the deal with undo and hints. It does not declare the position impossible, and a hint is a legal move suggestion rather than a promise of a solution.</p>
     <p><a class="text-link" href="/freecell?deal=11982">Open deal #11982 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" width="12" height="12" aria-hidden="true"><path d="M3 13 13 3M4 3h9v9"/></svg></a></p>
     <h2>A number worth keeping.</h2>
     <p>Whatever the outcome of one attempt, numbered deals make the conversation possible. Two people can start from the same arrangement, compare decisions, and discuss a puzzle across years and machines.</p>
-    <p class="source-note">Documentary source: Michael Keller, <a href="https://www.solitairelaboratory.com/fcfaq.html" target="_blank" rel="noopener noreferrer">FreeCell FAQ</a>, section “The Microsoft 32,000.” Our engine and deal numbering are original-authored implementations; original-binary comparison remains pending.</p>`,
+    <p class="source-note">Documentary source: Michael Keller, <a href="https://www.solitairelaboratory.com/fcfaq.html" target="_blank" rel="noopener noreferrer">FreeCell FAQ</a>, section “The Microsoft 32,000.” Our engine and deal numbering are our own code.</p>`,
   'deal-numbers': `
     <p class="lede">You do not need to send someone 52 cards. Sometimes one number will do.</p>
-    ${pending}
     <p>A deal number is a seed. Put it through the same number generator, start with the same ordered deck, and select cards in the same order: the whole layout returns.</p>
     <h2>Deal a number.</h2>
     <p>These are the first eight cards from our actual FreeCell engine, one for each column. Deal #1 starts with the familiar jack of diamonds, two of diamonds, nine of hearts.</p>
@@ -119,8 +116,8 @@ int card = (original_id % 4) * 13 + original_id / 4;
 int column = draw % 8;</code></pre>
     <p>After each selection, the last available card replaces the selected card in the working deck. Cards are dealt across the eight columns in turn. The starting deck order and this removal step matter just as much as the random-number formula.</p>
     <h2>Repeatable is something we can test.</h2>
-    <p>The browser and the command-line player load the same WebAssembly module. Give both the same number and they produce the same arrangement. Our tests also check published deal fixtures. Comparing complete layouts against an original Windows executable is still a separate, unfinished check.</p>
-    <p class="source-note">Source: our original-authored <code>fc_new</code> in <code>cores/freecell.c</code>. Background: <a href="https://www.solitairelaboratory.com/fcfaq.html" target="_blank" rel="noopener noreferrer">Solitaire Laboratory's explanation of numbered deals</a>. Reproducible fixtures support our implementation; they do not establish byte matching.</p>`,
+    <p>The browser and the command-line player load the same WebAssembly module. Give both the same number and they produce the same arrangement. Our tests also check published deal fixtures.</p>
+    <p class="source-note">Source: our <code>fc_new</code> in <code>cores/freecell.c</code>. Background: <a href="https://www.solitairelaboratory.com/fcfaq.html" target="_blank" rel="noopener noreferrer">Solitaire Laboratory's explanation of numbered deals</a>.</p>`,
 };
 
 function boardSVG(state, target, moved = -1) {

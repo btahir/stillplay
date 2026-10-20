@@ -1,6 +1,6 @@
 # Replay format, version 1
 
-Stillplay runs the same original-authored C WebAssembly modules in the browser and in Node. A replay records the initial game configuration and input actions. It contains no program code, original executable, or Microsoft assets. This format proves reproducibility in this implementation; it does not establish equivalence with an original Windows game.
+Stillplay runs the same WebAssembly modules, compiled from our own C, in the browser and in Node. A replay records the initial game configuration and input actions, and contains no program code. Playing the same replay through the same core always reproduces the same game.
 
 Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"`, `"freecell"`, `"solitaire"`, `"spider"` or `"hearts"`. The shared `src/shared.js` loader accepts a JSON string or object, enforces a 1 MiB envelope and at most 100,000 actions, then validates and plays every action through the corresponding WASM core. Unknown versions and malformed actions fail with an error. JSON fields such as a claimed score or winner are never trusted as a result: derive results by replaying.
 
@@ -22,7 +22,7 @@ Replays use UTF-8 JSON, `version: 1`, and `game: "minesweeper"`, `"freecell"`, `
 
 `level` is `beginner` (9 × 9, 10 mines), `intermediate` (16 × 16, 40 mines), or `expert` (30 × 16, 99 mines). `seed` is an unsigned 32-bit integer, including zero. `x` and `y` are zero-based board coordinates. `t` is a nonnegative safe integer representing elapsed milliseconds; timestamps must be nondecreasing. Times are informational and do not change board logic. They are client-provided values and cannot authenticate a speed record.
 
-Actions record valid input attempts, including inputs with no resulting board change. First-click relocation and flood reveal are deterministic for a given seed and action sequence. The generator uses a CRT-style RNG, but its boards have not been compared with owner-supplied original binaries. No claim of original seed equivalence is made.
+Actions record valid input attempts, including inputs with no resulting board change. First-click relocation and flood reveal are deterministic for a given seed and action sequence. The generator uses a CRT-style RNG with Stillplay's own mine-placement policy.
 
 ## FreeCell
 
@@ -44,9 +44,9 @@ Actions record valid input attempts, including inputs with no resulting board ch
 }
 ```
 
-`deal` is an integer from 1 through 2,147,483,647. The familiar original range is 1–32,000. Locations use zero-based indices: `column` 0–7, `freecell` 0–3, or `foundation` 0–3. The CLI also accepts `c0`–`c7`, `f0`–`f3`, and `h0`–`h3`. Foundation indices follow clubs, diamonds, hearts, spades. `count` is the number of cards moved; omitting it means one. Multi-card moves must be descending and alternate color, and must fit the available temporary spaces.
+`deal` is an integer from 1 through 2,147,483,647. The familiar classic range is 1–32,000. Locations use zero-based indices: `column` 0–7, `freecell` 0–3, or `foundation` 0–3. The CLI also accepts `c0`–`c7`, `f0`–`f3`, and `h0`–`h3`. Foundation indices follow clubs, diamonds, hearts, spades. `count` is the number of cards moved; omitting it means one. Multi-card moves must be descending and alternate color, and must fit the available temporary spaces.
 
-Only successful moves, undos, and automatic foundation actions are logged. A replay with an illegal action is rejected, including an undo with no history. Hints do not modify the state and are not logged. Cards in state JSON are suit-major integers: clubs 0–12, diamonds 13–25, hearts 26–38, and spades 39–51, with ace through king in each suit. Foundation state values are top ranks/counts 0–13, not card IDs. The deal algorithm is independently implemented; verification against owner-supplied originals remains pending.
+Only successful moves, undos, and automatic foundation actions are logged. A replay with an illegal action is rejected, including an undo with no history. Hints do not modify the state and are not logged. Cards in state JSON are suit-major integers: clubs 0–12, diamonds 13–25, hearts 26–38, and spades 39–51, with ace through king in each suit. Foundation state values are top ranks/counts 0–13, not card IDs. Deals follow the documented classic numbered-deal algorithm (see `docs/freecell-core.md`).
 
 ## Solitaire (Klondike)
 
@@ -166,12 +166,4 @@ State JSON exposes the complete Minesweeper board, including unrevealed mines, f
 
 ## Daily challenge
 
-`dailySeed(YYYY-MM-DD)` hashes `stillplay:YYYY-MM-DD` using unsigned FNV-1a. Dates are UTC and the shared challenge changes at midnight UTC. The FreeCell daily deal is `dailySeed(date) % 32000 + 1`. All clients running this version derive the same seed/deal without a server. This mapping is not an original-game feature.
-
-## Local executable inspection
-
-`inspectExecutable(arrayBuffer)` from `src/pe-resources.js` reads PE headers and resource directories, computes SHA-256 with browser Web Crypto, and wraps supported `RT_BITMAP` DIBs in BMP headers. It never executes the program and contains no network calls. Files and extracted art stay in browser memory; no original binaries or assets are saved in the repository. The caller should also avoid analytics or persistence of the supplied file.
-
-The return value contains `metadata`, `sha256`, `resources`, `bitmaps`, `warnings`, and candidate `minesweeper` strip mappings. Tiles are recognized as 16 × 16 strips, faces as 26 × 26, and digits as 13 × 23, in either orientation. Each candidate reports its `id`, `bmp`, `cellWidth`, `cellHeight`, `direction`, and `count`. Dimension matching does not establish frame ordering or resource identity. `minesweeper.verified` remains false; an imported-resource preview is not an authenticated original skin. The playable Original pixels mode must keep using our own art until a mapping is verified with the owner's binaries.
-
-The parser bounds-checks PE structures, resource subdirectories, and file-backed RVAs; it rejects cycles, excessive nesting, oversized resource trees, unsupported compression, and truncated bitmap palettes/pixels. Linker versions are metadata, not proof of a matching compiler. SHA-256 identifies a supplied file, not its provenance.
+`dailySeed(YYYY-MM-DD)` hashes `stillplay:YYYY-MM-DD` using unsigned FNV-1a. Dates are UTC and the shared challenge changes at midnight UTC. The FreeCell daily deal is `dailySeed(date) % 32000 + 1`. All clients running this version derive the same seed/deal without a server. The daily mapping is Stillplay's own.

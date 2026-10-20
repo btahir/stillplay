@@ -1,5 +1,4 @@
-/* Original-authored Spider Solitaire rules. This is not a decompilation of
- * Microsoft software and has not been compared against an original executable.
+/* Stillplay's own Spider Solitaire rules, written from scratch in C.
  *
  * Two decks, 104 physical cards. Each physical card has a stable uid 0..103:
  * rank = uid % 13 (0 = ace .. 12 = king), deck slot = uid / 13 (0..7).

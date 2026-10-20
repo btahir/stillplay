@@ -1,5 +1,4 @@
-/* Original-authored Hearts rules and opponents. This is not a decompilation of
- * Microsoft software and has not been compared against an original executable.
+/* Stillplay's own Hearts rules and opponents, written from scratch in C.
  *
  * Cards use the shared suit-major ids: clubs 0-12, diamonds 13-25, hearts
  * 26-38, spades 39-51; id % 13 is 0 for the ace through 12 for the king.

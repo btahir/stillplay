@@ -1,5 +1,4 @@
-/* Original-authored Klondike (Solitaire) rules. This is not a decompilation of
- * Microsoft software and has not been compared against an original executable.
+/* Stillplay's own Klondike (Solitaire) rules, written from scratch in C.
  *
  * Cards use suit-major IDs: clubs, diamonds, hearts, spades; rank = id % 13 + 1.
  * Deals come from a documented seeded shuffle (mulberry32 + Fisher-Yates), so

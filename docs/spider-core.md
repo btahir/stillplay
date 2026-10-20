@@ -1,9 +1,9 @@
 # Spider Solitaire core
 
-`cores/spider.c` is original-authored rules code, compiled to one freestanding
-WebAssembly module for the browser and Node (`src/spider-core.js`). It is **not
-a decompilation** and has not been compared with an original executable. Deals
-come from our own seeded shuffle, so seed numbers do not match any Windows deal.
+`cores/spider.c` is our own rules code, written from scratch in C and compiled
+to one freestanding WebAssembly module for the browser and Node
+(`src/spider-core.js`). Deals come from our own seeded shuffle, so seed numbers
+are Stillplay's own.
 
 ## Rules implemented
 

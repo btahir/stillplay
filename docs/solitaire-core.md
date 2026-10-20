@@ -1,9 +1,8 @@
 # Solitaire (Klondike) core
 
-`cores/solitaire.c` is original-authored rules code, compiled to the same
-freestanding WebAssembly module for the browser and Node. It is **not a
-matching decompilation** and has not been compared with an original
-executable.
+`cores/solitaire.c` is our own rules code, written from scratch in C and
+compiled to one freestanding WebAssembly module for the browser and Node
+(`src/solitaire-core.js`).
 
 ## Deals
 
@@ -48,8 +47,7 @@ Klondike has no famous numbered deals, so Stillplay documents its own:
 These values are the commonly documented Windows rules
 ([Klondike on Wikipedia](https://en.wikipedia.org/wiki/Klondike_(solitaire)),
 retrieved 2026-10-18). The draw-three pass penalty is less well documented;
-we follow the common "three free passes, then −20" description. None of this
-has been checked against the original program.
+we follow the common "three free passes, then −20" description.
 
 ## Helpers
 

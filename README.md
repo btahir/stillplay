@@ -4,7 +4,7 @@
 
 **A little time. Well wasted.**
 
-Minesweeper, FreeCell, Solitaire, Spider Solitaire and Hearts, rebuilt for the browser.<br>
+A homage to the games that came with Windows XP: Minesweeper, FreeCell, Solitaire, Spider Solitaire and Hearts, back in your browser.<br>
 Nothing to install, no account, no ads. Works offline once you've visited.
 
 **[Play at stillplay.shiptiffin.app](https://stillplay.shiptiffin.app)**
@@ -56,7 +56,7 @@ Open [localhost:4179](http://localhost:4179). The home page boots straight into 
 
 ## How it's built
 
-There is no framework and no bundler: plain HTML, CSS and ES modules.
+Everything is our own code. There is no framework and no bundler: plain HTML, CSS and ES modules.
 
 - **Rules in C, compiled to WebAssembly.** Each game's rules live in `cores/<game>.c`, written without libc and compiled to a 4–15 KB WASM module. The same module runs in the browser and in Node, so a replay produces the same state in both.
 - **One shared card table.** `src/card-table.js` handles drag and drop, tap and keyboard input, move and deal animations, and the win cascade for all four card games. Each game is a thin `src/<game>-ui.js` on top.
@@ -106,21 +106,12 @@ pnpm exec playwright install --only-shell chromium
 ```
 
 ```sh
-pnpm test            # 66 unit and property tests
+pnpm test            # 60 unit and property tests
 pnpm test:browser    # 41 browser scenarios in headless Chromium
 pnpm lighthouse      # Lighthouse on the built site
 ```
 
 The unit tests play thousands of seeded games per core: they check that cards are conserved and every move is legal, that replays round-trip, and that scoring is right. They also measure the Hearts players (96.7% wins against random play, about 25% each at a four-way table) and how often a simple solver wins one-suit Spider. The browser scenarios drive the real UI with mouse, keyboard and touch, from deal to win cascade, at desktop and 320 px sizes, and compare each game window against approved screenshots.
-
-## The long game: rebuilding the originals
-
-The bigger aim is to reconstruct the original Windows XP games function by function, and to prove each match byte for byte. That needs lawfully supplied original executables and a matching compiler, and that work hasn't started. So today every verified number is zero, and the [scoreboard](scoreboard/) says so. What you play now is our own code, written to behave like the games you remember. It makes no claim to be the original.
-
-[![Minesweeper verification status](public/badges/minesweeper.svg)](scoreboard/minesweeper.json)
-[![FreeCell verification status](public/badges/freecell.svg)](scoreboard/freecell.json)
-
-If you have your own copy, the site's resource inspector can read the bitmaps from a game's `.exe` entirely in your browser. Nothing is uploaded. See [`docs/matching.md`](docs/matching.md) for how matching will work.
 
 ## Credits
 
@@ -130,4 +121,4 @@ If you have your own copy, the site's resource inspector can read the bitmaps fr
 
 ## Licence
 
-[MIT](LICENSE). Stillplay is an independent project, not affiliated with or endorsed by Microsoft. "Windows XP" is used only to describe the historical games.
+[MIT](LICENSE). Stillplay is an independent fan project, not affiliated with or endorsed by Microsoft. "Windows XP" is used only to name the games it pays tribute to.

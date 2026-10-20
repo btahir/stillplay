@@ -1,4 +1,4 @@
-/** Browser and Node adapter for the exact same original-authored WASM core. */
+/** Browser and Node adapter for our FreeCell WASM core (the same module in both). */
 const kinds = ['column', 'freecell', 'foundation'];
 const wasmURL = new URL('../cores/freecell.wasm', import.meta.url);
 let compiled;

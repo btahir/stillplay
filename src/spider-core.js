@@ -1,5 +1,5 @@
 /**
- * Browser and Node adapter for the original-authored Spider Solitaire WASM core.
+ * Browser and Node adapter for our Spider Solitaire WASM core.
  *
  * Columns are numbered 0–9 (the CLI also accepts c0–c9). Cards in state are
  * objects { uid, card, faceUp }: `uid` 0–103 is stable for the physical card

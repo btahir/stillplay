@@ -1,5 +1,5 @@
 /**
- * Browser and Node adapter for the original-authored Klondike WASM core.
+ * Browser and Node adapter for our Klondike WASM core.
  *
  * Locations are objects `{ type, index }` or short strings:
  *   t0..t6 tableau columns, w the waste, h0..h3 foundation slots, s the stock.

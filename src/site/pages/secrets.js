@@ -5,7 +5,7 @@ import { secretCard } from './home.js';
 
 export function render(main, { slug }) {
   if (!slug) {
-    main.innerHTML = `<section class="secrets-index wrap"><p class="eyebrow">Worth another look</p><h1>Small games.<br><em>Good secrets.</em></h1><p class="lede">The details that stayed with us, and the code you can poke at. Interactive notes from a reconstruction in progress.</p><div class="secrets-grid">${secrets.map(secretCard).join('')}</div></section>`;
+    main.innerHTML = `<section class="secrets-index wrap"><p class="eyebrow">Worth another look</p><h1>Small games.<br><em>Good secrets.</em></h1><p class="lede">The details that stayed with us, and the code you can poke at. Interactive notes, with our own game engines underneath.</p><div class="secrets-grid">${secrets.map(secretCard).join('')}</div></section>`;
     return null;
   }
   const secret = secrets.find((item) => item.slug === slug);

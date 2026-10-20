@@ -1,7 +1,5 @@
 /*
- * Original-authored deterministic Minesweeper rules for Stillplay.
- * This is a functional implementation, not a decompilation or a claim of
- * byte/behaviour equivalence with any historical executable.
+ * Stillplay's own deterministic Minesweeper rules, written from scratch in C.
  *
  * Build without a C runtime, e.g.:
  * clang --target=wasm32 -O2 -fno-builtin -nostdlib \
