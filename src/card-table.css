@@ -39,6 +39,8 @@
 }
 .ct-face > svg { display: block; width: 100%; height: 100%; border-radius: inherit; pointer-events: none; }
 .ct-dragging, .ct-dragging .ct-card { cursor: grabbing; }
+/* The lifted cards move every frame: give them their own layer so the shadow is drawn once. */
+.ct-card.ct-lifted { will-change: transform; }
 .ct-card.ct-lifted .ct-face {
   transition: none;
   box-shadow: 0 16px 26px -10px rgb(6 26 15 / 0.55), 0 4px 8px rgb(6 26 15 / 0.22);

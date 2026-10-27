@@ -215,7 +215,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
       return slot ? performMove(pile, slot, 1) : false;
     },
     cardLabel(card, faceUp, pile, index) {
-      if (pile === 's') return `Stock, ${plural(engine.state().stock.length, 'card')}. Draw ${engine.state().draw === 3 ? 'three' : 'one'}.`;
+      if (pile === 's') return stockLabel;
       if (!faceUp) return `Face-down card, ${pileLabel(pile)}`;
       return `${capital(cardName(card))}, ${pileLabel(pile)}${pile[0] === 't' ? `, card ${index + 1}` : ''}`;
     },
@@ -239,7 +239,10 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     return state.tableau[Number(pile[1])][index];
   }
 
+  let stockLabel = '';
   function pileState(state) {
+    // Worked out once per sync rather than once per stock card.
+    stockLabel = `Stock, ${plural(state.stock.length, 'card')}. Draw ${state.draw === 3 ? 'three' : 'one'}.`;
     const piles = {
       s: state.stock.map((card) => ({ card, faceUp: false })),
       w: { cards: state.waste, fan: Math.max(1, state.wasteFan) },
@@ -259,26 +262,35 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     if (state.scoring === 'vegas') return bankStart + state.score;
     return settings.timed ? engine.timedScore(elapsed()) : state.score;
   }
+  // Writes only what changed, so the once-a-second clock never restyles the window.
+  const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  let stockExhausted = null;
+  function renderClock(state = engine.state()) {
+    const value = score(state);
+    const scoreEl = $('.sol-status-score');
+    scoreEl.hidden = value === null;
+    if (value !== null) setText(scoreEl, `Score: ${state.scoring === 'vegas' ? money(value) : value.toLocaleString('en')}`);
+    const timeEl = $('.sol-status-time');
+    timeEl.hidden = !settings.timed;
+    setText(timeEl, `Time: ${clock(elapsed())}`);
+  }
   function renderChrome(state = engine.state()) {
     if (destroyed) return;
-    $('.sol-title').textContent = `Solitaire — Deal #${state.seed}`;
-    $('.sol-menu-mode').textContent = `${daily ? 'Daily · ' : ''}Draw ${state.draw === 3 ? 'three' : 'one'} · ${capital(state.scoring)}`;
+    setText($('.sol-title'), `Solitaire — Deal #${state.seed}`);
+    setText($('.sol-menu-mode'), `${daily ? 'Daily · ' : ''}Draw ${state.draw === 3 ? 'three' : 'one'} · ${capital(state.scoring)}`);
     for (const button of host.querySelectorAll('[data-action="undo"]')) button.disabled = state.moves === 0;
     for (const button of host.querySelectorAll('[data-action="finish"]')) button.disabled = !state.canAutoFinish;
     $('.sol-quick-actions .sol-finish').hidden = !state.canAutoFinish;
     $('.sol-finish-dot').hidden = !state.canAutoFinish;
-    $('.sol-status-moves').textContent = plural(state.moves, 'move');
-    const value = score(state);
-    const scoreEl = $('.sol-status-score');
-    scoreEl.hidden = value === null;
-    if (value !== null) scoreEl.textContent = `Score: ${state.scoring === 'vegas' ? money(value) : value.toLocaleString('en')}`;
-    const timeEl = $('.sol-status-time');
-    timeEl.hidden = !settings.timed;
-    timeEl.textContent = `Time: ${clock(elapsed())}`;
+    setText($('.sol-status-moves'), plural(state.moves, 'move'));
+    renderClock(state);
     const stock = pileElement('s');
     const exhausted = !state.stock.length && !state.canRecycle;
-    stock.classList.toggle('sol-stock-done', exhausted);
-    stock.querySelector('.sol-stock-icon').innerHTML = exhausted ? ICONS.done : ICONS.recycle;
+    if (exhausted !== stockExhausted) {
+      stockExhausted = exhausted;
+      stock.classList.toggle('sol-stock-done', exhausted);
+      stock.querySelector('.sol-stock-icon').innerHTML = exhausted ? ICONS.done : ICONS.recycle;
+    }
     stock.querySelector('.sol-slot').setAttribute('aria-label', exhausted ? 'Stock is finished for this game' : state.waste.length ? 'Stock is empty. Turn the waste over.' : 'Stock is empty');
     if (state.scoring === 'vegas' && settings.cumulative) writeJSON(BANK_KEY, bankStart + state.score);
   }
@@ -291,7 +303,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
   function startClock() {
     if (started || finishedSeconds !== null) return;
     started = Date.now();
-    ticker = setInterval(() => { if (!destroyed) renderChrome(); }, 1000);
+    ticker = setInterval(() => { if (!destroyed) renderClock(); }, 1000);
   }
   function stopClock() {
     finishedSeconds = elapsed();
@@ -419,7 +431,7 @@ export async function mountSolitaire(container, { daily = false, onWin = () => {
     stopRunning();
     if (!engine.undo()) { announce('You are at the start of this deal.'); return false; }
     playSound('undo');
-    if (wonReported) { wonReported = false; finishedSeconds = null; winEl.hidden = true; if (started) ticker = setInterval(() => renderChrome(), 1000); }
+    if (wonReported) { wonReported = false; finishedSeconds = null; winEl.hidden = true; if (started) ticker = setInterval(() => { if (!destroyed) renderClock(); }, 1000); }
     announce('One step back.');
     update();
     return true;

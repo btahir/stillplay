@@ -459,6 +459,8 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
       if (!event.target.closest('button:not(.ct-card), .hz-panel')) hurry();
       return;
     }
+    // A lifted card whose release never arrived goes back before this press starts.
+    if (drag?.dragging && event.pointerId === drag.id) { const stale = drag; drag = null; stale.el.classList.remove('ct-lifted', 'hz-dragging'); snapBack(stale); }
     const el = event.target.closest?.('.ct-card');
     if (!el || !isHandPile(el.dataset.pile) || (event.pointerType === 'mouse' && event.button !== 0)) return;
     const state = engine.state();
@@ -468,6 +470,7 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
   }
   function pointermove(event) {
     if (!drag || event.pointerId !== drag.id) return;
+    if (event.pointerType === 'mouse' && event.buttons === 0) { pointerup(event); return; } // the release went missing
     const dx = event.clientX - drag.x0, dy = event.clientY - drag.y0;
     if (!drag.dragging) {
       if (dy > -9 || Math.abs(dx) > Math.abs(dy) * 1.2) return;
@@ -486,8 +489,9 @@ export async function mountHearts(container, { daily = false, onWin = () => {}, 
     current.el.classList.remove('ct-lifted', 'hz-dragging');
     // Keep `drag` set until the play is underway so the tap that ends the gesture is ignored.
     setTimeout(() => { if (drag === current) drag = null; }, 0);
-    if (event.type === 'pointerup' && event.clientY < handTop - 6 && tryPlay(current.card)) return;
-    if (event.type === 'pointerup' && event.clientY >= handTop - 6) announce('Drag a card up onto the table to play it, or just tap it.');
+    const released = event.type !== 'pointercancel';
+    if (released && event.clientY < handTop - 6 && tryPlay(current.card)) return;
+    if (released && event.clientY >= handTop - 6) announce('Drag a card up onto the table to play it, or just tap it.');
     snapBack(current);
   }
   function snapBack(current) {

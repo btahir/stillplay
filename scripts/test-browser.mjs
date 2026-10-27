@@ -393,6 +393,56 @@ try {
     await expect(pileCards(page, 'w')).toHaveCount(1);
     await expect(pileCards(page, 's')).toHaveCount(23);
   });
+  await check('Solitaire drops land just below a target, survive automatic moves mid-drag and a lost release', async () => {
+    // "Send safe cards home" on, so the table changes while the next card is still in the hand.
+    await page.goto(`${baseURL}/solitaire?deal=42&draw=1`);
+    await page.evaluate(() => localStorage.setItem('stillplay-solitaire-options', JSON.stringify({ autoPlay: true })));
+    try {
+      await page.goto(`${baseURL}/solitaire?deal=42&draw=1`);
+      await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
+      // Deal 42: three of spades on column 7, four of diamonds on column 1. Grab the three by its
+      // top edge and let go a little below the four: the card overlaps it only by a sliver.
+      const three = await pileCards(page, 't6').last().boundingBox();
+      const four = await pileCards(page, 't0').last().boundingBox();
+      await page.mouse.move(three.x + three.width / 2, three.y + three.height * 0.1);
+      await page.mouse.down();
+      await page.mouse.move(four.x + four.width / 2, four.y + four.height * 1.12, { steps: 10 });
+      await page.mouse.up();
+      await expect(pileCards(page, 't0')).toHaveCount(2);
+      // That move frees the ace of clubs, and safe cards start going home on their own one after
+      // another while the nine of hearts is carried slowly to the ten of clubs. The drag must hold.
+      const nine = await pileCards(page, 't3').last().boundingBox();
+      const ten = await pileCards(page, 't2').last().boundingBox();
+      await page.mouse.move(nine.x + nine.width / 2, nine.y + nine.height / 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 12; i++) {
+        await page.mouse.move(nine.x + nine.width / 2 + (ten.x - nine.x) * i / 12, nine.y + nine.height / 2 + (ten.y + 20 - nine.y) * i / 12);
+        await page.waitForTimeout(50);
+      }
+      await expect.poll(() => page.locator('.solitaire-root .ct-card[data-pile^="h"]').count()).toBeGreaterThanOrEqual(2);
+      await expect(page.locator('.ct-lifted')).toHaveCount(1);
+      await page.mouse.up();
+      await expect(pileCards(page, 't2')).toHaveCount(4);
+      await expect(pileCards(page, 't2').last()).toHaveAttribute('aria-label', /Nine of hearts/);
+    } finally {
+      await page.evaluate(() => localStorage.removeItem('stillplay-solitaire-options'));
+    }
+    // A release the browser never reported: the next mouse move with no button down drops the card.
+    await page.goto(`${baseURL}/solitaire?deal=42&draw=1`);
+    await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);
+    const landed = await page.evaluate(async () => {
+      const felt = document.querySelector('.sol-felt');
+      const card = [...document.querySelectorAll('[data-pile-id="t6"] .ct-card')].at(-1);
+      const target = [...document.querySelectorAll('[data-pile-id="t0"] .ct-card')].at(-1).getBoundingClientRect();
+      const from = card.getBoundingClientRect();
+      const at = (x, y, buttons = 1) => ({ bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: x, clientY: y, button: 0, buttons });
+      card.dispatchEvent(new PointerEvent('pointerdown', at(from.x + 20, from.y + 20)));
+      for (let i = 1; i <= 6; i++) felt.dispatchEvent(new PointerEvent('pointermove', at(from.x + 20 + (target.x - from.x) * i / 6, from.y + 20 + (target.y - from.y) * i / 6)));
+      felt.dispatchEvent(new PointerEvent('pointermove', at(target.x + 20, target.y + 20, 0)));
+      return card.dataset.pile;
+    });
+    assert.equal(landed, 't0', 'The three of spades lands on the four of diamonds.');
+  });
   await check('Solitaire plays from the keyboard and undoes through the core', async () => {
     await page.goto(`${baseURL}/solitaire?deal=7&draw=1`);
     await expect(page.locator('.solitaire-root .ct-card')).toHaveCount(52);

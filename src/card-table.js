@@ -86,6 +86,46 @@ function injectStyles() {
 
 const resolve = (value, ...args) => typeof value === 'function' ? value(...args) : value;
 
+/*
+ * Drop zones reach a little past each pile, so a card let go just beside or below
+ * its target still lands. Fanned columns reach half a card further down. `core` keeps
+ * the pile's own rectangle.
+ */
+export function dropZone({ left, top, right, bottom, cardW, cardH, fan }) {
+  return {
+    left: left - cardW * 0.12,
+    right: right + cardW * 0.12,
+    top: top - cardH * 0.1,
+    bottom: bottom + cardH * (fan === 'down' ? 0.5 : 0.1),
+    core: { left, top, right, bottom },
+  };
+}
+
+const contains = (rect, point) => point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+
+/**
+ * Where a dragged card lands. `card` is its rectangle, `zones` are dropZone()s with an
+ * `id` and `legal: false` for piles that cannot take it. A legal zone under the pointer
+ * wins (the one the card overlaps most if zones meet). A pointer right over a pile that
+ * cannot take the card (its own pile included) means no: the card goes back. Otherwise
+ * the legal zone the card overlaps most.
+ */
+export function pickDropTarget(card, pointer, zones) {
+  let under = null, underArea = -1, overlap = null, overlapArea = 0, refused = false;
+  for (const zone of zones) {
+    if (zone.legal === false) {
+      if (contains(zone.core ?? zone, pointer)) refused = true;
+      continue;
+    }
+    const w = Math.min(card.right, zone.right) - Math.max(card.left, zone.left);
+    const h = Math.min(card.bottom, zone.bottom) - Math.max(card.top, zone.top);
+    const area = w > 0 && h > 0 ? w * h : 0;
+    if (contains(zone, pointer) && area > underArea) { underArea = area; under = zone.id; }
+    if (area > overlapArea) { overlapArea = area; overlap = zone.id; }
+  }
+  return under ?? (refused ? null : overlap);
+}
+
 export function createCardTable(root, options = {}) {
   injectStyles();
   const opts = {
@@ -272,7 +312,8 @@ export function createCardTable(root, options = {}) {
     syncCount += 1;
     clearCascade();
     clearHints();
-    if (gesture?.dragging) endDrag(false, true);
+    // A drag in progress survives a sync when its cards are still where it lifted them.
+    let dragging = gesture?.dragging ? gesture : null;
     const next = normalize(state);
     const motion = animate !== false && !reduced() && root.isConnected;
     const deal = motion && animate === 'deal';
@@ -315,6 +356,9 @@ export function createCardTable(root, options = {}) {
       const pile = piles.get(held.pile);
       if (!pile || held.index + held.count > pile.entries.length || !pile.entries[held.index]?.faceUp) held = null;
     }
+    // Otherwise it ends here, and the FLIP below carries its cards from the hand to their place.
+    if (dragging && !dragStillValid(dragging)) { releaseGesture(); dragging = null; }
+    const lifted = new Set(dragging?.entries);
     for (const pile of piles.values()) {
       const children = [...pile.element.children].filter((child) => child.ctEntry);
       if (children.length !== pile.entries.length || children.some((child, i) => child !== pile.entries[i].el)) {
@@ -357,6 +401,7 @@ export function createCardTable(root, options = {}) {
       pile.entries.forEach((entry, index) => {
         const { x, y } = spots[index];
         entry.x = x; entry.y = y;
+        if (lifted.has(entry)) return; // still in the hand
         entry.el.style.transform = `translate(${x}px, ${y}px)`;
         let start = first.get(entry.key);
         let delay = 0;
@@ -410,6 +455,12 @@ export function createCardTable(root, options = {}) {
     else if (activeEntry && cards.get(activeEntry.key) === activeEntry && document.activeElement !== activeEntry.el) activeEntry.el.focus({ preventScroll: true });
     else if (activeTarget && document.activeElement === document.body) piles.get(activeTarget)?.target?.focus({ preventScroll: true });
     updateDropHighlight();
+    if (dragging) {
+      // The table changed under the hand: new legal piles, new zones, same card.
+      measureDrag(dragging);
+      dragging.target = null;
+      paintDrag();
+    }
     await Promise.all(promises);
   }
 
@@ -439,12 +490,15 @@ export function createCardTable(root, options = {}) {
   /*
    * Opening deals stay brisk: however many cards there are, the last one lands within
    * DEAL_BUDGET ms (Spider's 54 and Hearts' 52 included). Any click or key while cards are
-   * still flying finishes the deal at once.
+   * still flying finishes the deal at once. Once the cards are dealt to their piles, that
+   * same press goes on to pick up or turn a card; while they are still gathering into the
+   * stock (the old layout) it only finishes the deal.
    */
   const DEAL_BUDGET = 1150;
   const DEAL_FLIGHT = 240;
   const DEAL_FLIP_TAIL = 130;
   let dealing = 0;
+  let gathering = false;
   function finishDeal() {
     // Twice: a flip's second half only starts once its first half has finished.
     const finishAll = () => { for (const animation of root.getAnimations({ subtree: true })) { try { animation.finish(); } catch { /* infinite or idle */ } } };
@@ -454,7 +508,7 @@ export function createCardTable(root, options = {}) {
   function dealInput(event) {
     if (!dealing) return;
     finishDeal();
-    if (event.type === 'pointerdown' && root.contains(event.target)) { event.preventDefault(); event.stopPropagation(); }
+    if (gathering && event.type === 'pointerdown' && root.contains(event.target)) { event.preventDefault(); event.stopPropagation(); }
   }
 
   async function deal(state, { from, order, stagger = 22 } = {}) {
@@ -489,6 +543,7 @@ export function createCardTable(root, options = {}) {
         ? { left: piles.get(from).ox, top: piles.get(from).oy }
         : { left: rootRect.left + (from?.x ?? 0), top: rootRect.top + (from?.y ?? 0) };
       held = null;
+      gathering = true;
       const gathers = [];
       let index = 0;
       for (const pile of pileList) {
@@ -502,7 +557,7 @@ export function createCardTable(root, options = {}) {
           gathers.push(animation.finished.catch(() => {}));
         }
       }
-      await Promise.all(gathers);
+      await Promise.all(gathers).finally(() => { gathering = false; });
       for (const entry of cards.values()) { if (entry.shown) paint(entry, false); }
     }
     return sync(state, { animate: 'deal', from, order, stagger });
@@ -687,8 +742,20 @@ export function createCardTable(root, options = {}) {
   }
 
   /* ── pointer input: drag and drop, taps, double taps ─────────────────── */
+  /*
+   * The table root hears a press through to its release (pointer capture sends it
+   * there, and the page shell reads the result on its own pointerup further up).
+   * The window listens too while a press lasts, for a release that lands outside
+   * the table when capture is not available. A mouse press that turns up while
+   * the last one never reported its release settles that one first (the browser
+   * lost the pointerup), and a mouse move with no button down counts as the release.
+   */
   function pointerdown(event) {
-    if (destroyed || (event.pointerType === 'mouse' && event.button !== 0) || gesture) return;
+    if (destroyed || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    if (gesture) {
+      if (event.pointerId !== gesture.id) return; // a second finger
+      settleGesture();
+    }
     if (cascadeRun) { cascadeRun.stop(); event.preventDefault(); return; }
     const cardEl = event.target.closest?.('.ct-card');
     const pileEl = event.target.closest?.('[data-ct-pile]');
@@ -698,38 +765,45 @@ export function createCardTable(root, options = {}) {
     const index = entry ? entry.index : -1;
     const count = entry ? pickCount(pileId, index) : 0;
     gesture = {
-      id: event.pointerId, type: event.pointerType || 'mouse', pile: pileId, index, count,
+      id: event.pointerId, type: event.pointerType || 'mouse', pile: pileId, index, count, entry,
       startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, dragging: false, target: null,
     };
+    window.addEventListener('pointermove', outside);
+    window.addEventListener('pointerup', outside);
+    window.addEventListener('pointercancel', outside);
     try { root.setPointerCapture(event.pointerId); } catch { /* Synthetic events may not capture. */ }
     if (count && event.pointerType !== 'mouse') event.preventDefault();
   }
+  function outside(event) {
+    if (root.contains(event.target)) return; // the root's own listener has it
+    if (event.type === 'pointermove') pointermove(event);
+    else if (event.type === 'pointerup') pointerup(event);
+    else pointercancel(event);
+  }
   function pointermove(event) {
     if (!gesture || event.pointerId !== gesture.id) return;
+    if (gesture.type === 'mouse' && event.buttons === 0) { pointerup(event); return; }
     gesture.x = event.clientX;
     gesture.y = event.clientY;
     if (!gesture.dragging) {
       const threshold = gesture.type === 'mouse' ? 4 : 8;
       if (!gesture.count || Math.hypot(gesture.x - gesture.startX, gesture.y - gesture.startY) < threshold) return;
-      startDrag();
+      if (!startDrag()) return;
     }
     if (!frame) frame = requestAnimationFrame(paintDrag);
   }
   function startDrag() {
     const pile = piles.get(gesture.pile);
+    // The table may have changed since the press (a deal landing, an automatic move).
+    if (pile?.entries[gesture.index] !== gesture.entry || pickCount(gesture.pile, gesture.index) !== gesture.count) {
+      releaseGesture();
+      return false;
+    }
     gesture.dragging = true;
     gesture.entries = pile.entries.slice(gesture.index, gesture.index + gesture.count);
-    if (held && !(held.pile === gesture.pile && held.index === gesture.index)) setHeld(null, true);
-    measurePiles();
-    gesture.rootRect = root.getBoundingClientRect();
     gesture.from = { pile: gesture.pile, index: gesture.index, count: gesture.count };
-    gesture.legal = new Set(pileList.filter((candidate) => candidate.id !== gesture.pile && opts.canDrop(gesture.from, candidate.id)).map((candidate) => candidate.id));
-    gesture.zones = pileList.map((candidate) => {
-      const extent = candidate.extent ?? candidate.cardH;
-      const lastSpot = candidate.entries.at(-1);
-      const right = candidate.ox + Math.max(candidate.cardW, (lastSpot?.x ?? 0) + candidate.cardW);
-      return { id: candidate.id, left: candidate.ox, top: candidate.oy, right, bottom: candidate.oy + Math.max(candidate.cardH, extent) };
-    });
+    if (held && !(held.pile === gesture.pile && held.index === gesture.index)) setHeld(null, true);
+    measureDrag(gesture);
     gesture.entries.forEach((entry, i) => {
       // Keep the card exactly where it is, even if it was mid-flight.
       const rect = entry.el.getBoundingClientRect();
@@ -740,41 +814,71 @@ export function createCardTable(root, options = {}) {
       entry.el.classList.add('ct-lifted');
     });
     root.classList.add('ct-dragging');
-    for (const id of gesture.legal) piles.get(id).element.classList.add('ct-drop-legal');
     emit('card-pick');
+    return true;
+  }
+  /** Which piles take the lifted cards, and their drop zones in viewport pixels. */
+  function measureDrag(drag) {
+    measurePiles();
+    drag.legal = new Set(pileList.filter((candidate) => candidate.id !== drag.pile && opts.canDrop(drag.from, candidate.id)).map((candidate) => candidate.id));
+    drag.zones = pileList.map((candidate) => {
+      const extent = candidate.extent ?? candidate.cardH;
+      const lastSpot = candidate.entries.at(-1);
+      return {
+        id: candidate.id,
+        legal: drag.legal.has(candidate.id),
+        ...dropZone({
+          left: candidate.ox, top: candidate.oy,
+          right: candidate.ox + Math.max(candidate.cardW, (lastSpot?.x ?? 0) + candidate.cardW),
+          bottom: candidate.oy + Math.max(candidate.cardH, extent),
+          cardW: candidate.cardW, cardH: candidate.cardH, fan: candidate.fan,
+        }),
+      };
+    });
+    for (const pile of piles.values()) pile.element.classList.toggle('ct-drop-legal', drag.legal.has(pile.id));
+  }
+  function dragStillValid(drag) {
+    const pile = piles.get(drag.pile);
+    return Boolean(pile) && drag.entries.every((entry, i) => pile.entries[drag.index + i] === entry)
+      && pickCount(drag.pile, drag.index) === drag.count;
   }
   function paintDrag() {
     frame = 0;
     if (!gesture?.dragging) return;
     const dx = gesture.x - gesture.startX, dy = gesture.y - gesture.startY;
     for (const entry of gesture.entries) entry.el.style.transform = `translate(${entry.baseX + dx}px, ${entry.baseY + dy}px)`;
-    // Hit test: the legal pile the lifted card overlaps most; the pointer position breaks ties.
     const pile = piles.get(gesture.pile);
     const lead = gesture.entries[0];
     const left = pile.ox + lead.baseX + dx, top = pile.oy + lead.baseY + dy;
-    const right = left + pile.cardW, bottom = top + pile.cardH;
-    let best = null, bestArea = 0;
-    for (const zone of gesture.zones) {
-      if (!gesture.legal.has(zone.id)) continue;
-      const w = Math.min(right, zone.right) - Math.max(left, zone.left);
-      const h = Math.min(bottom, zone.bottom) - Math.max(top, zone.top);
-      const inside = gesture.x >= zone.left && gesture.x <= zone.right && gesture.y >= zone.top && gesture.y <= zone.bottom;
-      const area = w > 0 && h > 0 ? w * h + (inside ? 1e6 : 0) : 0;
-      if (area > bestArea) { bestArea = area; best = zone.id; }
-    }
+    const best = pickDropTarget({ left, top, right: left + pile.cardW, bottom: top + pile.cardH }, { x: gesture.x, y: gesture.y }, gesture.zones);
     if (best !== gesture.target) { gesture.target = best; updateDropHighlight(best); }
   }
-  function endDrag(commit, quiet = false) {
+  /** Forget the press and undo the drag styling; the cards stay where they are drawn. */
+  function releaseGesture() {
     const current = gesture;
     gesture = null;
+    window.removeEventListener('pointermove', outside);
+    window.removeEventListener('pointerup', outside);
+    window.removeEventListener('pointercancel', outside);
     if (frame) { cancelAnimationFrame(frame); frame = 0; }
-    root.classList.remove('ct-dragging');
-    for (const pile of piles.values()) pile.element.classList.remove('ct-drop-legal');
+    if (current?.dragging) {
+      root.classList.remove('ct-dragging');
+      for (const pile of piles.values()) pile.element.classList.remove('ct-drop-legal');
+      for (const entry of current.entries) entry.el.classList.remove('ct-lifted');
+    }
+    return current;
+  }
+  /** A press whose release never arrived: a drag lands where it was last drawn, a press is dropped. */
+  function settleGesture() {
+    if (gesture?.dragging) endDrag(true);
+    else releaseGesture();
+  }
+  function endDrag(commit) {
+    const current = releaseGesture();
     updateDropHighlight();
     if (!current?.dragging) return;
-    for (const entry of current.entries) entry.el.classList.remove('ct-lifted');
     if (commit && current.target && tryDrop(current.from, current.target)) return;
-    if (commit && !quiet) {
+    if (commit) {
       emit('invalid', 80);
       say(opts.messages.illegal?.(current.from, current.target) ?? 'That card goes back where it was.');
     }
@@ -782,7 +886,7 @@ export function createCardTable(root, options = {}) {
     for (const entry of current.entries) {
       const from = entry.el.style.transform;
       entry.el.style.transform = `translate(${entry.x}px, ${entry.y}px)`;
-      if (reduced() || quiet) { entry.el.style.zIndex = ''; continue; }
+      if (reduced()) { entry.el.style.zIndex = ''; continue; }
       const animation = entry.el.animate([{ transform: from }, { transform: entry.el.style.transform }], { duration: 300, easing: EASE_SNAP });
       entry.move = animation;
       animation.finished.then(() => { if (entry.move === animation) { entry.move = null; entry.el.style.zIndex = ''; } }, () => {});
@@ -797,13 +901,12 @@ export function createCardTable(root, options = {}) {
       endDrag(true);
       return;
     }
-    const { pile, index } = gesture;
-    gesture = null;
+    const { pile, index } = releaseGesture();
     tap(pile, index);
   }
   function pointercancel(event) {
     if (!gesture || event.pointerId !== gesture.id) return;
-    endDrag(false, true);
+    endDrag(false);
   }
   function tap(pileId, index) {
     const time = performance.now();
@@ -826,6 +929,10 @@ export function createCardTable(root, options = {}) {
     if (performance.now() < suppressClickUntil || event.detail > 0) return;
     const entry = event.target.closest('.ct-card')?.ctEntry;
     choose(entry ? entry.pile : inside.dataset.ctPile, entry ? entry.index : -1, true);
+  }
+  function focusin() {
+    // A press focuses the card it lands on; that must not clear a drag's highlight.
+    if (!gesture?.dragging) updateDropHighlight();
   }
   function contextmenu(event) {
     if (event.target.closest?.('.ct-card') && root.contains(event.target)) event.preventDefault();
@@ -990,11 +1097,10 @@ export function createCardTable(root, options = {}) {
   root.addEventListener('pointermove', pointermove);
   root.addEventListener('pointerup', pointerup);
   root.addEventListener('pointercancel', pointercancel);
-  root.addEventListener('lostpointercapture', pointercancel);
   root.addEventListener('click', click);
   root.addEventListener('keydown', keydown);
   root.addEventListener('contextmenu', contextmenu);
-  root.addEventListener('focusin', () => updateDropHighlight());
+  root.addEventListener('focusin', focusin);
 
   definePiles(opts.piles ?? []);
 
@@ -1023,11 +1129,12 @@ export function createCardTable(root, options = {}) {
       resizeObserver?.disconnect();
       for (const entry of cards.values()) { stopCardMotion(entry); cancelFlip(entry); entry.el.remove(); }
       cards.clear();
+      releaseGesture();
       root.removeEventListener('pointerdown', pointerdown);
       root.removeEventListener('pointermove', pointermove);
       root.removeEventListener('pointerup', pointerup);
       root.removeEventListener('pointercancel', pointercancel);
-      root.removeEventListener('lostpointercapture', pointercancel);
+      root.removeEventListener('focusin', focusin);
       root.removeEventListener('click', click);
       root.removeEventListener('keydown', keydown);
       root.removeEventListener('contextmenu', contextmenu);
